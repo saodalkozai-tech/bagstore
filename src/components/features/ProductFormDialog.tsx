@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { addProduct, updateProduct } from '@/lib/storage';
+import { addProduct, syncLocalDataToSupabase, updateProduct } from '@/lib/storage';
 import { uploadImageToCloudinary } from '@/lib/cloudinary';
 import { useStoreSettings } from '@/hooks/use-store-settings';
 import { Product } from '@/types';
@@ -177,7 +177,7 @@ export function ProductFormDialog({ open, onOpenChange, product, onSuccess }: Pr
     setImages([...imageUrls, '']);
   };
 
-  const onSubmit = (data: ProductFormData) => {
+  const onSubmit = async (data: ProductFormData) => {
     const images = data.images
       .split('\n')
       .map((url) => url.trim())
@@ -224,6 +224,13 @@ export function ProductFormDialog({ open, onOpenChange, product, onSuccess }: Pr
     } else {
       addProduct(productData);
       toast.success('تم إضافة المنتج بنجاح');
+    }
+
+    try {
+      await syncLocalDataToSupabase();
+      toast.success('تمت مزامنة المنتج مع قاعدة البيانات');
+    } catch (error) {
+      toast.warning(error instanceof Error ? error.message : 'تم الحفظ محليًا، لكن فشلت المزامنة مع قاعدة البيانات');
     }
 
     reset(getDefaultValues(null));
