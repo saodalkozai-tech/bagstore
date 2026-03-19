@@ -83,6 +83,12 @@ const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string; description: stri
   { id: 'reports', label: 'التقارير', description: 'ملخص الأداء', icon: Layers3 },
   { id: 'activity', label: 'سجل النشاط', description: 'المستخدمون والعمليات', icon: Activity }
 ];
+const DASHBOARD_TAB_LABELS: Record<DashboardTab, string> = {
+  inventory: 'المخزون',
+  financial: 'التحليل المالي',
+  reports: 'التقارير',
+  activity: 'سجل النشاط'
+};
 const HASH_TO_TAB: Record<string, DashboardTab> = {
   '#inventory-stats': 'inventory',
   '#total-products': 'inventory',
@@ -363,7 +369,24 @@ export function DashboardPage() {
           <p className="text-sm font-semibold text-slate-700">تبويبات لوحة التحكم</p>
           <p className="hidden text-xs text-slate-500 sm:block">مرر أفقيًا على الجوال للتنقل بين الأقسام</p>
         </div>
-        <TabsList className="flex h-auto w-full gap-2 overflow-x-auto bg-transparent p-0 pb-1">
+        <div className="sm:hidden">
+          <Select
+            value={activeTab}
+            onValueChange={(value: DashboardTab) => setActiveTab(value)}
+          >
+            <SelectTrigger className="h-12 rounded-xl">
+              <SelectValue placeholder="اختر القسم" />
+            </SelectTrigger>
+            <SelectContent>
+              {DASHBOARD_TABS.map((tab) => (
+                <SelectItem key={tab.id} value={tab.id}>
+                  {DASHBOARD_TAB_LABELS[tab.id]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <TabsList className="hidden h-auto w-full gap-2 overflow-x-auto bg-transparent p-0 pb-1 sm:flex">
           {DASHBOARD_TABS.map((tab) => {
             const Icon = tab.icon;
             return (

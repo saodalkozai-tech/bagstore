@@ -186,7 +186,7 @@ export function AdminLayout() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-slate-100/70">
+    <div className="min-h-[calc(100vh-4rem)] overflow-x-hidden bg-slate-100/70">
       <div className={cn('mx-auto grid max-w-[1500px] p-3 lg:grid-cols-[280px_1fr] lg:p-6', compactMode ? 'gap-3 lg:gap-4' : 'gap-4 lg:gap-6')}>
         <aside className="hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm lg:sticky lg:top-20 lg:block lg:h-fit">
           <div className="rounded-xl bg-gradient-to-l from-primary to-amber-500 p-4 text-white shadow-md">
@@ -364,7 +364,7 @@ export function AdminLayout() {
               <p className="text-sm font-semibold text-slate-700">أزرار التنقل السريع</p>
               <p className="text-xs text-slate-500">انتقال مباشر لأقسام لوحة التحكم</p>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="grid gap-2 sm:flex sm:overflow-x-auto sm:pb-1">
               {visibleMenuItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = isPathActive(item.path);
@@ -373,7 +373,7 @@ export function AdminLayout() {
                     key={`quick-${item.path}`}
                     to={item.path}
                     className={cn(
-                      'flex min-w-[180px] shrink-0 items-center justify-between rounded-2xl border px-4 py-3 transition-all',
+                      'flex items-center justify-between rounded-2xl border px-4 py-3 transition-all sm:min-w-[180px] sm:shrink-0',
                       isActive
                         ? 'border-primary bg-primary/10 text-primary'
                         : 'border-slate-200 text-slate-700 hover:bg-slate-50'
@@ -390,7 +390,7 @@ export function AdminLayout() {
             </div>
             <div className="mt-3 border-t border-slate-200 pt-3">
               <p className="mb-2 text-xs font-semibold text-slate-500">اختصارات الإحصاءات</p>
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="grid gap-2 sm:flex sm:overflow-x-auto sm:pb-1">
                 {dashboardQuickLinks.map((item) => {
                   const Icon = item.icon;
                   const isActive = isDashboardAnchorActive(item.hash);
@@ -403,7 +403,7 @@ export function AdminLayout() {
                       key={`dash-${item.path}`}
                       to={item.path}
                       className={cn(
-                        'flex min-w-[180px] shrink-0 items-center justify-between rounded-2xl border px-3 py-2.5 transition-all',
+                        'flex items-center justify-between rounded-2xl border px-3 py-2.5 transition-all sm:min-w-[180px] sm:shrink-0',
                         isActive
                           ? 'border-primary bg-primary/10 text-primary'
                           : 'border-slate-200 text-slate-700 hover:bg-slate-50'
@@ -453,8 +453,8 @@ export function AdminLayout() {
           </div>
         </main>
       </div>
-      <div className="sticky bottom-3 z-30 px-3 lg:hidden">
-        <div className="mx-auto flex max-w-3xl gap-2 overflow-x-auto rounded-2xl border border-slate-200/80 bg-white/95 p-2 shadow-lg backdrop-blur">
+      <div className="px-3 pb-3 pt-1 lg:hidden">
+        <div className="mx-auto grid max-w-3xl grid-cols-2 gap-2 rounded-2xl border border-slate-200/80 bg-white/95 p-2 shadow-lg backdrop-blur">
           {visibleMenuItems.map((item) => {
             const Icon = item.icon;
             const isActive = isPathActive(item.path);
@@ -463,7 +463,7 @@ export function AdminLayout() {
                 key={`mobile-${item.path}`}
                 to={item.path}
                 className={cn(
-                  'flex min-w-[120px] shrink-0 flex-col items-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors',
+                  'flex min-w-0 flex-col items-center gap-1 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors',
                   isActive ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'
                 )}
               >
