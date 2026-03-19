@@ -1,7 +1,12 @@
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
-import { hydrateAuthSession, initializeStorage, syncLocalDataToSupabase } from './lib/storage.ts'
+import {
+  hydrateAuthSession,
+  initializeStorage,
+  refreshProductsFromSupabase,
+  syncLocalDataToSupabase
+} from './lib/storage.ts'
 
 const root = createRoot(document.getElementById("root")!);
 let hasRendered = false;
@@ -16,6 +21,7 @@ async function bootstrap() {
   try {
     await hydrateAuthSession();
     await initializeStorage();
+    await refreshProductsFromSupabase();
     await syncLocalDataToSupabase();
   } catch (error) {
     console.error('Application bootstrap failed. Falling back to local mode:', error);
