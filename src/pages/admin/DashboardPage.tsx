@@ -1,5 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Package, PackageCheck, PackageX, TrendingUp, AlertCircle, ShoppingBag, Layers3, Trash2, Printer, Eye, Users, CalendarDays, Settings, Gauge } from 'lucide-react';
+import {
+  Package,
+  PackageCheck,
+  PackageX,
+  TrendingUp,
+  AlertCircle,
+  ShoppingBag,
+  Layers3,
+  Trash2,
+  Printer,
+  Eye,
+  Users,
+  CalendarDays,
+  Settings,
+  Gauge,
+  Activity
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   AlertDialog,
@@ -61,6 +77,12 @@ const DEFAULT_PRINT_SETTINGS: PrintDesignSettings = {
   showCardBorders: true
 };
 type DashboardTab = 'inventory' | 'financial' | 'reports' | 'activity';
+const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string; description: string; icon: typeof Gauge }> = [
+  { id: 'inventory', label: 'المخزون', description: 'التوفر والحركة', icon: Gauge },
+  { id: 'financial', label: 'التحليل المالي', description: 'القيمة والتسعير', icon: TrendingUp },
+  { id: 'reports', label: 'التقارير', description: 'ملخص الأداء', icon: Layers3 },
+  { id: 'activity', label: 'سجل النشاط', description: 'المستخدمون والعمليات', icon: Activity }
+];
 const HASH_TO_TAB: Record<string, DashboardTab> = {
   '#inventory-stats': 'inventory',
   '#total-products': 'inventory',
@@ -126,6 +148,28 @@ export function DashboardPage() {
   const discountedProductsCount = products.filter(
     (product) => typeof product.salePrice === 'number' && product.salePrice < product.price
   ).length;
+  const dashboardHighlights = [
+    {
+      label: 'إجمالي المنتجات',
+      value: stats.totalProducts,
+      tone: 'border-slate-200 bg-white text-slate-900'
+    },
+    {
+      label: 'المتوفر الآن',
+      value: stats.inStockProducts,
+      tone: 'border-emerald-200 bg-emerald-50/70 text-emerald-700'
+    },
+    {
+      label: 'نفاد المخزون',
+      value: stats.outOfStockProducts,
+      tone: 'border-rose-200 bg-rose-50/70 text-rose-700'
+    },
+    {
+      label: 'زيارات المتجر',
+      value: settings.visitorCount,
+      tone: 'border-sky-200 bg-sky-50/70 text-sky-700'
+    }
+  ];
   const logActionLabels: Record<string, string> = {
     login: 'تسجيل دخول',
     logout: 'تسجيل خروج',
@@ -226,13 +270,23 @@ export function DashboardPage() {
 
   return (
     <div className="motion-fade-in space-y-6">
-      <div className="motion-fade-up rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">نظرة عامة سريعة</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              متابعة المخزون والقيمة المالية والحالة التشغيلية للمتجر.
-            </p>
+      <div className="motion-fade-up overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(245,158,11,0.12),_transparent_24%),linear-gradient(135deg,#f8fafc_0%,#ffffff_45%,#fff7ed_100%)] px-4 py-5 sm:px-5 sm:py-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <h2 className="text-2xl font-black tracking-tight text-slate-900">نظرة عامة سريعة</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600 sm:text-base">
+                متابعة أسرع للمخزون والقيمة المالية وسجل النشاط من واجهة أخف وأكثر وضوحًا على الهاتف.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {dashboardHighlights.map((item) => (
+                <div key={item.label} className={`rounded-2xl border px-4 py-3 shadow-sm ${item.tone}`}>
+                  <p className="text-xs font-semibold opacity-80">{item.label}</p>
+                  <p className="mt-1 text-xl font-black">{item.value}</p>
+                </div>
+              ))}
+            </div>
           </div>
           <div className="grid gap-2 sm:flex sm:flex-wrap">
             <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
@@ -303,17 +357,31 @@ export function DashboardPage() {
       <Tabs
         value={activeTab}
         onValueChange={(value) => setActiveTab(value as DashboardTab)}
-        className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+        className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
       >
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between gap-4">
           <p className="text-sm font-semibold text-slate-700">تبويبات لوحة التحكم</p>
-          <p className="text-xs text-slate-500">عرض كل قسم بشكل منفصل ومنظم</p>
+          <p className="hidden text-xs text-slate-500 sm:block">مرر أفقيًا على الجوال للتنقل بين الأقسام</p>
         </div>
-        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 bg-transparent p-0 sm:grid-cols-2 md:grid-cols-4">
-          <TabsTrigger value="inventory" className="justify-start">المخزون</TabsTrigger>
-          <TabsTrigger value="financial" className="justify-start">التحليل المالي</TabsTrigger>
-          <TabsTrigger value="reports" className="justify-start">تقارير الأرباح</TabsTrigger>
-          <TabsTrigger value="activity" className="justify-start">سجل النشاط</TabsTrigger>
+        <TabsList className="flex h-auto w-full gap-2 overflow-x-auto bg-transparent p-0 pb-1">
+          {DASHBOARD_TABS.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <TabsTrigger
+                key={tab.id}
+                value={tab.id}
+                className="h-auto min-w-[168px] shrink-0 justify-start rounded-2xl border border-slate-200 bg-white px-3 py-3 text-right data-[state=active]:border-slate-900 data-[state=active]:bg-slate-900 data-[state=active]:text-white"
+              >
+                <span className="ml-3 rounded-md bg-slate-100 p-2 text-slate-700">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="flex flex-col items-start gap-0.5">
+                  <span className="text-sm font-semibold">{tab.label}</span>
+                  <span className="text-xs opacity-80">{tab.description}</span>
+                </span>
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
       </Tabs>
 

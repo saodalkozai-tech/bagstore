@@ -10,7 +10,13 @@ import heroImage from '@/assets/hero-bags.jpg';
 export function HomePage() {
   const products = useProducts();
   const settings = useStoreSettings();
-  const featuredProducts = products.filter(p => p.featured).slice(0, 4);
+  const latestProducts = useMemo(
+    () =>
+      [...products].sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      ),
+    [products]
+  );
   const whatsappLink = `https://wa.me/${settings.whatsapp.replace(/[^\d]/g, '')}`;
   const heroImages = useMemo(() => {
     const normalized = settings.heroImageUrls.map((url) => url.trim()).filter(Boolean);
@@ -127,18 +133,18 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Featured Products */}
+      {/* Latest Products */}
       <section className="py-12 md:py-16">
         <div className="container mx-auto px-4">
           <div className="text-center mb-8 md:mb-12">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 md:mb-4">المنتجات المميزة</h2>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 md:mb-4">أحدث المنتجات</h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              تصفح مجموعتنا المختارة من أفضل الحقائب الفاخرة
+              جميع المنتجات معروضة هنا حسب آخر تحديث، من الأحدث إلى الأقدم
             </p>
           </div>
 
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {featuredProducts.map((product) => (
+            {latestProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>

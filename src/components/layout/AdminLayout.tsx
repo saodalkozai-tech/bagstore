@@ -20,7 +20,8 @@ import {
   PackageX,
   CalendarDays,
   Minimize2,
-  Maximize2
+  Maximize2,
+  Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getCurrentUser, logout } from '@/lib/storage';
@@ -116,6 +117,28 @@ export function AdminLayout() {
     return items;
   }, [availableProducts, lowStockProducts, products.length, unavailableProducts]);
   const criticalNotificationsCount = notifications.filter((item) => item.tone !== 'info').length;
+  const headerSummaryCards = [
+    {
+      label: 'إجمالي المنتجات',
+      value: products.length,
+      tone: 'border-slate-200 bg-white text-slate-900'
+    },
+    {
+      label: 'المتوفر',
+      value: availableProducts,
+      tone: 'border-emerald-200 bg-emerald-50/70 text-emerald-700'
+    },
+    {
+      label: 'غير المتوفر',
+      value: unavailableProducts,
+      tone: 'border-rose-200 bg-rose-50/70 text-rose-700'
+    },
+    {
+      label: 'مخزون منخفض',
+      value: lowStockProducts,
+      tone: 'border-amber-200 bg-amber-50/70 text-amber-700'
+    }
+  ];
   const [compactMode, setCompactMode] = useState(() => {
     try {
       return localStorage.getItem('bagstore_admin_compact_mode') === '1';
@@ -244,11 +267,16 @@ export function AdminLayout() {
             </div>
           </div>
 
-          <div className={cn('rounded-2xl border border-slate-200/80 bg-white shadow-sm', compactMode ? 'p-3 md:p-4' : 'p-4 md:p-6')}>
+          <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm">
+            <div className={cn('bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(245,158,11,0.12),_transparent_22%),linear-gradient(135deg,#f8fafc_0%,#ffffff_45%,#fff7ed_100%)]', compactMode ? 'p-3 md:p-4' : 'p-4 md:p-6')}>
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">{pageTitle}</h1>
-                <p className="text-sm text-slate-500">تنظيم وإدارة المتجر من مكان واحد</p>
+                <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-600">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                  لوحة إدارة مرنة ومتوافقة مع الهاتف
+                </div>
+                <h1 className="mt-3 text-2xl font-black tracking-tight text-slate-900">{pageTitle}</h1>
+                <p className="mt-1 text-sm text-slate-500">تنظيم وإدارة المتجر من مكان واحد</p>
               </div>
               <div className="flex w-full flex-wrap items-center justify-start gap-2 md:w-auto md:justify-end">
                 <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={toggleCompactMode}>
@@ -320,6 +348,15 @@ export function AdminLayout() {
                 </div>
               </div>
             </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {headerSummaryCards.map((card) => (
+                <div key={card.label} className={`rounded-2xl border px-4 py-3 shadow-sm ${card.tone}`}>
+                  <p className="text-xs font-semibold opacity-80">{card.label}</p>
+                  <p className="mt-1 text-xl font-black">{card.value}</p>
+                </div>
+              ))}
+            </div>
+            </div>
           </div>
 
           <div className={cn('rounded-2xl border border-slate-200/80 bg-white shadow-sm', compactMode ? 'p-2.5 md:p-3' : 'p-3 md:p-4')}>
@@ -327,7 +364,7 @@ export function AdminLayout() {
               <p className="text-sm font-semibold text-slate-700">أزرار التنقل السريع</p>
               <p className="text-xs text-slate-500">انتقال مباشر لأقسام لوحة التحكم</p>
             </div>
-            <div className="grid gap-2 sm:flex sm:overflow-x-auto sm:pb-1">
+            <div className="flex gap-2 overflow-x-auto pb-1">
               {visibleMenuItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = isPathActive(item.path);
@@ -336,7 +373,7 @@ export function AdminLayout() {
                     key={`quick-${item.path}`}
                     to={item.path}
                     className={cn(
-                      'flex items-center justify-between rounded-lg border px-4 py-3 transition-all sm:min-w-[180px]',
+                      'flex min-w-[180px] shrink-0 items-center justify-between rounded-2xl border px-4 py-3 transition-all',
                       isActive
                         ? 'border-primary bg-primary/10 text-primary'
                         : 'border-slate-200 text-slate-700 hover:bg-slate-50'
@@ -353,7 +390,7 @@ export function AdminLayout() {
             </div>
             <div className="mt-3 border-t border-slate-200 pt-3">
               <p className="mb-2 text-xs font-semibold text-slate-500">اختصارات الإحصاءات</p>
-              <div className="grid gap-2 sm:flex sm:overflow-x-auto sm:pb-1">
+              <div className="flex gap-2 overflow-x-auto pb-1">
                 {dashboardQuickLinks.map((item) => {
                   const Icon = item.icon;
                   const isActive = isDashboardAnchorActive(item.hash);
@@ -366,7 +403,7 @@ export function AdminLayout() {
                       key={`dash-${item.path}`}
                       to={item.path}
                       className={cn(
-                        'flex items-center justify-between rounded-lg border px-3 py-2.5 transition-all sm:min-w-[180px]',
+                        'flex min-w-[180px] shrink-0 items-center justify-between rounded-2xl border px-3 py-2.5 transition-all',
                         isActive
                           ? 'border-primary bg-primary/10 text-primary'
                           : 'border-slate-200 text-slate-700 hover:bg-slate-50'
@@ -415,6 +452,27 @@ export function AdminLayout() {
             <Outlet />
           </div>
         </main>
+      </div>
+      <div className="sticky bottom-3 z-30 px-3 lg:hidden">
+        <div className="mx-auto flex max-w-3xl gap-2 overflow-x-auto rounded-2xl border border-slate-200/80 bg-white/95 p-2 shadow-lg backdrop-blur">
+          {visibleMenuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = isPathActive(item.path);
+            return (
+              <Link
+                key={`mobile-${item.path}`}
+                to={item.path}
+                className={cn(
+                  'flex min-w-[120px] shrink-0 flex-col items-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors',
+                  isActive ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

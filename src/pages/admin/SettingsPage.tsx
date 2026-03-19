@@ -12,7 +12,6 @@ import {
   Eye,
   EyeOff,
   ImageUp,
-  LayoutTemplate,
   Palette,
   Plus,
   RefreshCcw,
@@ -148,6 +147,12 @@ export function SettingsPage() {
     settings.externalDbUrl.trim() && settings.externalDbApiKey.trim()
   );
   const [activeSection, setActiveSection] = useState<SettingsSection>('store');
+  const readySectionCount = SETTINGS_SECTIONS.length;
+  const syncStatusLabel = settings.externalDbEnabled
+    ? isExternalDbConfigReady
+      ? 'السحابة مفعلة'
+      : 'تحتاج إكمال الربط'
+    : 'محلي فقط';
 
   const refreshUsers = () => {
     setUsers(getAdminUsers());
@@ -565,11 +570,33 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6 max-w-6xl">
-      <div className="rounded-xl border border-slate-200 bg-white px-5 py-5 shadow-sm">
-        <h2 className="text-xl font-bold text-slate-900">إعدادات المتجر</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          إدارة الهوية، الربط السحابي، المستخدمين وخيارات العرض من صفحة واحدة.
-        </p>
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="bg-[radial-gradient(circle_at_top_right,_rgba(217,95,31,0.18),_transparent_35%),linear-gradient(135deg,#fff7ed_0%,#ffffff_45%,#f8fafc_100%)] px-4 py-5 sm:px-6 sm:py-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <h2 className="text-2xl font-black tracking-tight text-slate-900">إعدادات المتجر</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600 sm:text-base">
+                لوحة إعدادات أنظف وأسرع لإدارة الهوية والربط السحابي والمستخدمين مع تجربة مريحة على الهاتف.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[420px]">
+              <div className="rounded-2xl border border-white/80 bg-white/90 px-4 py-3 backdrop-blur">
+                <p className="text-xs font-semibold text-slate-500">الأقسام</p>
+                <p className="mt-1 text-lg font-bold text-slate-900">{readySectionCount}</p>
+              </div>
+              <div className="rounded-2xl border border-white/80 bg-white/90 px-4 py-3 backdrop-blur">
+                <p className="text-xs font-semibold text-slate-500">المزامنة</p>
+                <p className="mt-1 text-lg font-bold text-slate-900">{syncStatusLabel}</p>
+              </div>
+              <div className="rounded-2xl border border-white/80 bg-white/90 px-4 py-3 backdrop-blur">
+                <p className="text-xs font-semibold text-slate-500">المستخدمون</p>
+                <p className="mt-1 text-lg font-bold text-slate-900">
+                  {firebaseAuthEnabled ? 'Firebase' : `${users.length} محلي`}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <Tabs
@@ -577,19 +604,19 @@ export function SettingsPage() {
         onValueChange={(value) => setActiveSection(value as SettingsSection)}
         className="space-y-4"
       >
-        <div className="sticky top-20 z-20 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
-          <div className="mb-3 flex items-center justify-between">
+        <div className="sticky top-20 z-20 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
+          <div className="mb-3 flex items-center justify-between gap-4">
             <p className="text-sm font-semibold text-slate-700">التنقل بين أقسام الإعدادات</p>
-            <p className="text-xs text-slate-500">مجموعات واضحة بدون تكرار في القوائم</p>
+            <p className="hidden text-xs text-slate-500 sm:block">مرر أفقيًا على الجوال للتنقل بسرعة</p>
           </div>
-          <TabsList className="grid h-auto w-full grid-cols-1 gap-2 bg-transparent p-0 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <TabsList className="flex h-auto w-full gap-2 overflow-x-auto bg-transparent p-0 pb-1">
             {SETTINGS_SECTIONS.map((section) => {
               const Icon = section.icon;
               return (
                 <TabsTrigger
                   key={section.id}
                   value={section.id}
-                  className="h-auto justify-start rounded-lg border border-slate-200 bg-white px-3 py-3 text-right data-[state=active]:border-slate-900 data-[state=active]:bg-slate-900 data-[state=active]:text-white"
+                  className="h-auto min-w-[168px] shrink-0 justify-start rounded-2xl border border-slate-200 bg-white px-3 py-3 text-right data-[state=active]:border-slate-900 data-[state=active]:bg-slate-900 data-[state=active]:text-white"
                 >
                   <span className="ml-3 rounded-md bg-slate-100 p-2 text-slate-700">
                     <Icon className="h-4 w-4" />

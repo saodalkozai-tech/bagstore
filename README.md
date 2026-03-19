@@ -274,6 +274,28 @@ npm run firebase:login
 npm run firebase:use
 ```
 
+### رفع التحديثات إلى GitHub يدويًا
+
+بعد إنهاء التعديلات محليًا:
+
+```bash
+git status --short
+git add .
+git commit -m "feat: short description of your changes"
+git push origin master
+```
+
+إذا كان الفرع الرئيسي لديك هو `main` بدل `master`:
+
+```bash
+git push origin main
+```
+
+نصيحة عملية:
+1. شغّل `npm run check` قبل `git commit`.
+2. إذا كانت التعديلات كبيرة، شغّل `npm run build` أيضًا.
+3. بعد `git push` سيتمكن GitHub Actions من النشر التلقائي إذا كانت الإعدادات مفعلة.
+
 ### نشر مباشر للإنتاج (Live)
 
 ```bash
@@ -283,6 +305,23 @@ npm run deploy
 هذا الأمر يقوم بـ:
 - بناء المشروع (`npm run build`)
 - رفع آخر نسخة إلى Firebase Hosting (مشروع `hr-accessories`)
+
+### دورة العمل الكاملة: GitHub ثم Firebase
+
+إذا أردت تنفيذ الدورة الكاملة يدويًا:
+
+```bash
+npm run check
+git add .
+git commit -m "feat: update admin ui and homepage ordering"
+git push origin master
+npm run deploy
+```
+
+هذا المسار يضمن:
+- التحقق من سلامة الكود أولًا
+- حفظ نسخة واضحة في GitHub
+- نشر نفس النسخة على Firebase Hosting
 
 ### بعد تغيير الدومين أو رابط النشر
 
