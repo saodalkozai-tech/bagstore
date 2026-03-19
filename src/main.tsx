@@ -1,13 +1,18 @@
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
-import { hydrateAuthSession, initializeStorage } from './lib/storage.ts'
+import { hydrateAuthSession, initializeStorage, syncLocalDataToSupabase } from './lib/storage.ts'
 
 const root = createRoot(document.getElementById("root")!);
 
 async function bootstrap() {
   await hydrateAuthSession();
   await initializeStorage();
+  try {
+    await syncLocalDataToSupabase();
+  } catch (error) {
+    console.warn('Cloud sync on refresh failed:', error);
+  }
   root.render(<App />);
 }
 
