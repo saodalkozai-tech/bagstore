@@ -966,7 +966,7 @@ export const login = async (username: string, password: string): Promise<User | 
   if (supabase) {
     try {
       const { data, error } = await supabase
-        .from('admin_users')
+        .from('bagstore_users')
         .select('*')
         .eq('username', normalizedUsername)
         .single();
