@@ -1,17 +1,20 @@
 import { useState } from 'react';
 import { Mail, Phone, MapPin } from 'lucide-react';
 import { useStoreSettings } from '@/hooks/use-store-settings';
+import { useLocation } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import './footer.css';
 
 export function Footer() {
+  const location = useLocation();
   const settings = useStoreSettings();
   const logoSrc = settings.logoUrl.trim() || '/logo.png';
   const quickLinks = settings.quickLinks;
   const footerCategories = settings.footerCategories;
   const [activeMessage, setActiveMessage] = useState('');
   const whatsappLink = `https://wa.me/${settings.whatsapp.replace(/[^\d]/g, '')}`;
+  const isSettingsPage = location.pathname.startsWith('/admin/settings');
 
   const handleQuickLinkClick = (
     event: React.MouseEvent<HTMLAnchorElement>,
@@ -95,9 +98,11 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="footer-bottom">
-          <p>© 2026 متجر الحقائب. جميع الحقوق محفوظة.</p>
-        </div>
+        {!isSettingsPage && (
+          <div className="footer-bottom">
+            <p>© 2026 متجر الحقائب. جميع الحقوق محفوظة.</p>
+          </div>
+        )}
       </div>
       </footer>
 

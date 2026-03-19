@@ -873,7 +873,7 @@ export function SettingsPage() {
             </div>
 
             <div className="space-y-6">
-              <!-- تم إزالة قسم فئات الفوتر والروابط السريعة -->
+              {/* تم إزالة قسم فئات الفوتر والروابط السريعة */}
             </div>
           </div>
         </CardContent>
