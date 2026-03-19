@@ -1,0 +1,23 @@
+/**
+ * المتغيرات العامة CSS
+ * تحتوي على المتغيرات المستخدمة في جميع أنحاء التطبيق
+ */
+
+/* متغيرات الشريط الجانبي */
+:root {
+  --sidebar-width: 260px;
+  --sidebar-width-icon: 80px;
+  --sidebar-width-mobile: 300px;
+}
+
+/* متغيرات الألوان الديناميكية للمخططات */
+:root {
+  --chart-color-bg: var(--primary);
+  --chart-color-border: var(--primary);
+  --legend-color: var(--primary);
+}
+
+/* متغيرات شريط التقدم */
+:root {
+  --progress-value: 0%;
+}

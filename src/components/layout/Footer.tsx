@@ -3,6 +3,7 @@ import { Mail, Phone, MapPin } from 'lucide-react';
 import { useStoreSettings } from '@/hooks/use-store-settings';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import './footer.css';
 
 export function Footer() {
   const settings = useStoreSettings();
@@ -24,33 +25,33 @@ export function Footer() {
 
   return (
     <>
-      <footer className="mt-12 bg-gray-900 text-gray-300 md:mt-20">
-        <div className="container mx-auto px-4 py-10 md:py-12">
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+      <footer className="footer">
+        <div className="container footer-container">
+        <div className="footer-grid">
           {/* About */}
           <div>
-            <div className="mb-4">
+            <div className="footer-logo-container">
               <img
                 src={logoSrc}
                 alt={settings.storeName}
-                className="h-auto max-h-14 w-auto object-contain sm:max-h-20"
+                className="footer-logo"
                 height={settings.logoHeightFooter}
               />
             </div>
-            <p className="text-sm leading-relaxed">
+            <p className="footer-description">
               متجرك الموثوق لأفضل الحقائب الفاخرة والعصرية. نقدم منتجات عالية الجودة بأسعار منافسة.
             </p>
           </div>
 
           {/* Quick Links */}
           <div>
-            <h3 className="font-semibold text-white mb-4">روابط سريعة</h3>
-            <ul className="space-y-2 text-sm">
+            <h3 className="footer-section-title">روابط سريعة</h3>
+            <ul className="footer-links-list">
               {quickLinks.map((item, index) => (
                 <li key={`${item.url}-${index}`}>
                   <a
                     href={item.url}
-                    className="hover:text-primary transition-colors"
+                    className="footer-link"
                     onClick={(event) => handleQuickLinkClick(event, item.message)}
                   >
                     {item.label}
@@ -62,11 +63,11 @@ export function Footer() {
 
           {/* Categories */}
           <div>
-            <h3 className="font-semibold text-white mb-4">الفئات</h3>
-            <ul className="space-y-2 text-sm">
+            <h3 className="footer-section-title">الفئات</h3>
+            <ul className="footer-links-list">
               {footerCategories.map((category) => (
                 <li key={category}>
-                  <a href="/products" className="hover:text-primary transition-colors">
+                  <a href="/products" className="footer-link">
                     {category}
                   </a>
                 </li>
@@ -76,43 +77,43 @@ export function Footer() {
 
           {/* Contact */}
           <div>
-            <h3 className="font-semibold text-white mb-4">تواصل معنا</h3>
-            <ul className="space-y-3 text-sm">
-              <li className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-primary" />
+            <h3 className="footer-section-title">تواصل معنا</h3>
+            <ul className="footer-links-list">
+              <li className="footer-contact-item">
+                <Phone className="footer-contact-icon" />
                 <span>+9647768397293</span>
               </li>
-              <li className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-primary" />
+              <li className="footer-contact-item">
+                <Mail className="footer-contact-icon" />
                 <span>info@bagstore.com</span>
               </li>
-              <li className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-primary" />
+              <li className="footer-contact-item">
+                <MapPin className="footer-contact-icon" />
                 <span>العراق - بغداد   </span>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm">
+        <div className="footer-bottom">
           <p>© 2026 متجر الحقائب. جميع الحقوق محفوظة.</p>
         </div>
       </div>
       </footer>
 
       <Dialog open={Boolean(activeMessage)} onOpenChange={(open) => !open && setActiveMessage('')}>
-        <DialogContent className="max-w-md text-right">
+        <DialogContent className="footer-dialog">
           <DialogHeader>
             <DialogTitle>رسالة</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-slate-700 leading-7">{activeMessage}</p>
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button type="button" variant="outline" asChild className="w-full sm:w-auto">
+          <p className="footer-dialog-message">{activeMessage}</p>
+          <div className="footer-dialog-actions">
+            <Button type="button" variant="outline" asChild className="footer-dialog-button">
               <a href={whatsappLink} target="_blank" rel="noopener noreferrer">
                 تواصل عبر واتس اب
               </a>
             </Button>
-            <Button type="button" onClick={() => setActiveMessage('')} className="w-full sm:w-auto">
+            <Button type="button" onClick={() => setActiveMessage('')} className="footer-dialog-button">
               إغلاق
             </Button>
           </div>

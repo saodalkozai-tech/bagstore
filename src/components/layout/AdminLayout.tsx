@@ -14,14 +14,16 @@ import {
   Info,
   LogOut,
   ChevronLeft,
-  Box,
   RefreshCw,
   PackageCheck,
   PackageX,
   CalendarDays,
   Minimize2,
   Maximize2,
-  Sparkles
+  Sparkles,
+  Menu,
+  X,
+  Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getCurrentUser, logout } from '@/lib/storage';
@@ -31,18 +33,20 @@ import { toast } from 'sonner';
 import { User as UserType } from '@/types';
 import { useProducts } from '@/hooks/use-products';
 
+// القائمة الرئيسية
 const menuItems = [
   { icon: LayoutDashboard, label: 'لوحة التحكم', path: '/admin', roles: ['admin', 'editor', 'viewer'] as UserType['role'][] },
   { icon: Package, label: 'المنتجات', path: '/admin/products', roles: ['admin', 'editor'] as UserType['role'][] },
   { icon: Settings, label: 'الإعدادات', path: '/admin/settings', roles: ['admin'] as UserType['role'][] },
 ];
+
+// روابط سريعة للإحصائيات
 const dashboardQuickLinks = [
-  { icon: ChartColumn, label: 'إحصاءات المخزون', path: '/admin#inventory-stats', hash: '#inventory-stats' },
+  { icon: ChartColumn, label: 'إحصائيات المخزون', path: '/admin#inventory-stats', hash: '#inventory-stats' },
   { icon: CircleDollarSign, label: 'التحليل المالي', path: '/admin#financial-analysis', hash: '#financial-analysis' },
-  { icon: Wallet, label: 'الأرباح المالية', path: '/admin#financial-profits', hash: '#financial-profits' },
-  { icon: Boxes, label: 'إجمالي المنتجات', path: '/admin#total-products', hash: '#total-products' },
-  { icon: Wallet, label: 'تقارير الأرباح', path: '/admin#profit-reports', hash: '#profit-reports' },
-  { icon: User, label: 'سجل المستخدمين', path: '/admin#user-activity-log', hash: '#user-activity-log' }
+  { icon: Wallet, label: 'الأرباح', path: '/admin#financial-profits', hash: '#financial-profits' },
+  { icon: Boxes, label: 'تقارير المنتجات', path: '/admin#total-products', hash: '#total-products' },
+  { icon: User, label: 'سجل النشاط', path: '/admin#user-activity-log', hash: '#user-activity-log' }
 ];
 
 const ROLE_LABELS: Record<UserType['role'], string> = {
@@ -56,26 +60,47 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const user = getCurrentUser();
   const products = useProducts();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [compactMode, setCompactMode] = useState(() => {
+    try {
+      return localStorage.getItem('bagstore_admin_compact_mode') === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  // تصفية العناصر حسب الصلاحيات
   const visibleMenuItems = menuItems.filter((item) => user && item.roles.includes(user.role));
+
+  // تحديد عنوان الصفحة
   const pageTitle = useMemo(() => {
     if (location.pathname === '/admin') return 'لوحة التحكم';
     if (location.pathname.startsWith('/admin/products')) return 'إدارة المنتجات';
     if (location.pathname.startsWith('/admin/settings')) return 'الإعدادات';
     return 'لوحة الإدارة';
   }, [location.pathname]);
+
+  // تاريخ اليوم
   const todayLabel = useMemo(
     () => new Intl.DateTimeFormat('ar-IQ', { dateStyle: 'full' }).format(new Date()),
     []
   );
+
+  // إحصائيات المنتجات
   const availableProducts = products.filter((product) => product.inStock).length;
   const unavailableProducts = products.length - availableProducts;
   const lowStockProducts = products.filter((product) => product.stock > 0 && product.stock <= 5).length;
+
+  // التحقق من المسار النشط
   const isPathActive = (path: string) => {
     if (path === '/admin') return location.pathname === '/admin';
     return location.pathname.startsWith(path);
   };
+
   const isDashboardAnchorActive = (hash: string) =>
     location.pathname === '/admin' && location.hash === hash;
+
+  // نوع الإشعارات
   type HeaderNotification = {
     id: string;
     title: string;
@@ -83,6 +108,8 @@ export function AdminLayout() {
     link: string;
     tone: 'danger' | 'warning' | 'info';
   };
+
+  // إنشاء الإشعارات
   const notifications = useMemo(() => {
     const items: HeaderNotification[] = [];
 
@@ -90,7 +117,7 @@ export function AdminLayout() {
       items.push({
         id: 'out-of-stock',
         title: `نفاد مخزون ${unavailableProducts} منتج`,
-        description: 'راجع المنتجات غير المتوفرة وأعد التخزين.',
+        description: 'راجع المنتجات غير المتوفرة وأعد التخزين',
         link: '/admin/products',
         tone: 'danger'
       });
@@ -100,7 +127,7 @@ export function AdminLayout() {
       items.push({
         id: 'low-stock',
         title: `مخزون منخفض لـ ${lowStockProducts} منتج`,
-        description: 'توجد منتجات أقل من 5 قطع متاحة.',
+        description: 'توجد منتجات أقل من 5 قطع متاحة',
         link: '/admin#inventory-stats',
         tone: 'warning'
       });
@@ -116,43 +143,46 @@ export function AdminLayout() {
 
     return items;
   }, [availableProducts, lowStockProducts, products.length, unavailableProducts]);
+
   const criticalNotificationsCount = notifications.filter((item) => item.tone !== 'info').length;
-  const headerSummaryCards = [
+
+  // بطاقات الإحصائيات
+  const statsCards = [
     {
       label: 'إجمالي المنتجات',
       value: products.length,
+      icon: Boxes,
       tone: 'border-slate-200 bg-white text-slate-900'
     },
     {
-      label: 'المتوفر',
+      label: 'متوفر',
       value: availableProducts,
+      icon: PackageCheck,
       tone: 'border-emerald-200 bg-emerald-50/70 text-emerald-700'
     },
     {
-      label: 'غير المتوفر',
+      label: 'غير متوفر',
       value: unavailableProducts,
+      icon: PackageX,
       tone: 'border-rose-200 bg-rose-50/70 text-rose-700'
     },
     {
       label: 'مخزون منخفض',
       value: lowStockProducts,
+      icon: AlertTriangle,
       tone: 'border-amber-200 bg-amber-50/70 text-amber-700'
     }
   ];
-  const [compactMode, setCompactMode] = useState(() => {
-    try {
-      return localStorage.getItem('bagstore_admin_compact_mode') === '1';
-    } catch {
-      return false;
-    }
-  });
 
+  // التعامل مع تسجيل الخروج
   const handleLogout = () => {
     logout();
     toast.success('تم تسجيل الخروج بنجاح');
     navigate('/login');
+    setMobileMenuOpen(false);
   };
 
+  // التعامل مع تفريغ الكاش
   const handleClearCache = async () => {
     try {
       if ('caches' in window) {
@@ -173,6 +203,8 @@ export function AdminLayout() {
       toast.error('فشل تفريغ الكاش. حاول مرة أخرى.');
     }
   };
+
+  // تبديل الوضع المضغوط
   const toggleCompactMode = () => {
     setCompactMode((prev) => {
       const next = !prev;
@@ -187,7 +219,102 @@ export function AdminLayout() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] overflow-x-hidden bg-slate-100/70">
+      {/* زر القائمة للهاتف */}
+      <div className="lg:hidden sticky top-16 z-40 bg-white/95 backdrop-blur border-b border-slate-200/80 px-3 py-2">
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="gap-2"
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {mobileMenuOpen ? 'إغلاق القائمة' : 'القائمة'}
+          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleCompactMode}
+              className="gap-2"
+            >
+              {compactMode ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+              <span className="hidden sm:inline">{compactMode ? 'وضع عادي' : 'وضع مضغوط'}</span>
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* القائمة الجانبية للهاتف */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 bg-black/50" onClick={() => setMobileMenuOpen(false)}>
+          <div className="absolute right-0 top-0 h-full w-80 max-w-[85vw] overflow-y-auto bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4">
+              <div className="rounded-xl bg-gradient-to-l from-primary to-amber-500 p-4 text-white shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20">
+                    <User className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">{user?.name}</p>
+                    <p className="text-xs opacity-90">{user ? ROLE_LABELS[user.role] : ''}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                <p className="flex items-center gap-1.5">
+                  <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                  {todayLabel}
+                </p>
+                <p className="mt-1">إجمالي المنتجات: {products.length}</p>
+              </div>
+
+              <nav className="mt-4 space-y-2">
+                {visibleMenuItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = isPathActive(item.path);
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={cn(
+                        'flex items-center gap-2.5 rounded-xl px-4 py-3 transition-colors',
+                        isActive
+                          ? 'bg-primary text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="text-sm font-medium">{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              <div className="mt-4 grid gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={handleClearCache}>
+                  <RefreshCw className="ml-2 h-4 w-4" />
+                  تفريغ الكاش
+                </Button>
+                <Button
+                  onClick={handleLogout}
+                  variant="outline"
+                  size="sm"
+                  className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                >
+                  <LogOut className="ml-2 h-4 w-4" />
+                  تسجيل الخروج
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className={cn('mx-auto grid max-w-[1500px] p-3 lg:grid-cols-[280px_1fr] lg:p-6', compactMode ? 'gap-3 lg:gap-4' : 'gap-4 lg:gap-6')}>
+        {/* القائمة الجانبية للشاشات الكبيرة */}
         <aside className="hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm lg:sticky lg:top-20 lg:block lg:h-fit">
           <div className="rounded-xl bg-gradient-to-l from-primary to-amber-500 p-4 text-white shadow-md">
             <div className="mb-3 flex items-center gap-3">
@@ -209,6 +336,28 @@ export function AdminLayout() {
             <p className="mt-1">إجمالي المنتجات: {products.length}</p>
           </div>
 
+          <nav className="mt-4 space-y-2">
+            {visibleMenuItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = isPathActive(item.path);
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-xl px-4 py-3 transition-colors',
+                    isActive
+                      ? 'bg-primary text-white'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="text-sm font-medium">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
           <div className="mt-4 grid gap-2">
             <Button type="button" variant="outline" size="sm" onClick={handleClearCache}>
               <RefreshCw className="ml-2 h-4 w-4" />
@@ -227,141 +376,103 @@ export function AdminLayout() {
         </aside>
 
         <main className={cn(compactMode ? 'space-y-3' : 'space-y-4')}>
-          <div className={cn('space-y-3 rounded-2xl border border-slate-200/80 bg-white shadow-sm lg:hidden', compactMode ? 'p-3' : 'p-4')}>
-            <div className="flex items-center gap-3 rounded-xl bg-gradient-to-l from-primary to-amber-500 p-3 text-white">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
-                <User className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-bold">{user?.name}</p>
-                <p className="text-xs opacity-90">{user ? ROLE_LABELS[user.role] : ''}</p>
-              </div>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                <p className="flex items-center gap-1.5">
-                  <CalendarDays className="h-3.5 w-3.5 text-primary" />
-                  {todayLabel}
-                </p>
-                <p className="mt-1">إجمالي المنتجات: {products.length}</p>
-              </div>
-              <div className="grid gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={toggleCompactMode}>
-                  {compactMode ? <Maximize2 className="ml-2 h-4 w-4" /> : <Minimize2 className="ml-2 h-4 w-4" />}
-                  {compactMode ? 'وضع عادي' : 'وضع مضغوط'}
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={handleClearCache}>
-                  <RefreshCw className="ml-2 h-4 w-4" />
-                  تفريغ الكاش
-                </Button>
-                <Button
-                  onClick={handleLogout}
-                  variant="outline"
-                  size="sm"
-                  className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-                >
-                  <LogOut className="ml-2 h-4 w-4" />
-                  تسجيل الخروج
-                </Button>
-              </div>
-            </div>
-          </div>
-
+          {/* رأس الصفحة */}
           <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm">
             <div className={cn('bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(245,158,11,0.12),_transparent_22%),linear-gradient(135deg,#f8fafc_0%,#ffffff_45%,#fff7ed_100%)]', compactMode ? 'p-3 md:p-4' : 'p-4 md:p-6')}>
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-600">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                  لوحة إدارة مرنة ومتوافقة مع الهاتف
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-600">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                    لوحة إدارة مرنة ومتوافقة مع الهاتف
+                  </div>
+                  <h1 className="mt-3 text-2xl font-black tracking-tight text-slate-900">{pageTitle}</h1>
+                  <p className="mt-1 text-sm text-slate-500">تنظيم وإدارة المتجر من مكان واحد</p>
                 </div>
-                <h1 className="mt-3 text-2xl font-black tracking-tight text-slate-900">{pageTitle}</h1>
-                <p className="mt-1 text-sm text-slate-500">تنظيم وإدارة المتجر من مكان واحد</p>
-              </div>
-              <div className="flex w-full flex-wrap items-center justify-start gap-2 md:w-auto md:justify-end">
-                <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={toggleCompactMode}>
-                  {compactMode ? <Maximize2 className="ml-2 h-4 w-4" /> : <Minimize2 className="ml-2 h-4 w-4" />}
-                  {compactMode ? 'وضع عادي' : 'وضع مضغوط'}
-                </Button>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button type="button" variant="outline" className="relative w-full sm:w-auto">
-                      <Bell className="ml-2 h-4 w-4" />
-                      الإشعارات
-                      <span className={cn(
-                        'absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white',
-                        criticalNotificationsCount > 0 ? 'bg-rose-500' : 'bg-slate-500'
-                      )}>
-                        {notifications.length}
-                      </span>
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent align="end" className="w-[min(92vw,340px)] p-3">
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-sm font-semibold text-slate-800">الإشعارات</p>
-                      <span className="text-xs text-slate-500">{notifications.length}</span>
-                    </div>
-                    <div className="space-y-2">
-                      {notifications.map((notification) => (
-                        <Link
-                          key={notification.id}
-                          to={notification.link}
-                          className={cn(
-                            'flex items-start gap-2 rounded-lg border p-2 transition-colors',
-                            notification.tone === 'danger' && 'border-rose-200 bg-rose-50 hover:bg-rose-100',
-                            notification.tone === 'warning' && 'border-amber-200 bg-amber-50 hover:bg-amber-100',
-                            notification.tone === 'info' && 'border-slate-200 bg-slate-50 hover:bg-slate-100'
-                          )}
-                        >
-                          {notification.tone === 'info' ? (
-                            <Info className="mt-0.5 h-4 w-4 text-slate-600" />
-                          ) : (
-                            <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" />
-                          )}
-                          <span className="space-y-0.5">
-                            <span className="block text-xs font-semibold text-slate-800">{notification.title}</span>
-                            <span className="block text-[11px] text-slate-600">{notification.description}</span>
-                          </span>
-                        </Link>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                <div className="flex w-full flex-wrap items-center justify-start gap-2 md:w-auto md:justify-end">
+                  <Button type="button" variant="outline" className="hidden lg:flex w-full sm:w-auto" onClick={toggleCompactMode}>
+                    {compactMode ? <Maximize2 className="ml-2 h-4 w-4" /> : <Minimize2 className="ml-2 h-4 w-4" />}
+                    {compactMode ? 'وضع عادي' : 'وضع مضغوط'}
+                  </Button>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="outline" className="relative w-full sm:w-auto">
+                        <Bell className="ml-2 h-4 w-4" />
+                        الإشعارات
+                        <span className={cn(
+                          'absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white',
+                          criticalNotificationsCount > 0 ? 'bg-rose-500' : 'bg-slate-500'
+                        )}>
+                          {notifications.length}
+                        </span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-[min(92vw,340px)] p-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="text-sm font-semibold text-slate-800">الإشعارات</p>
+                        <span className="text-xs text-slate-500">{notifications.length}</span>
+                      </div>
+                      <div className="space-y-2">
+                        {notifications.map((notification) => (
+                          <Link
+                            key={notification.id}
+                            to={notification.link}
+                            className={cn(
+                              'flex items-start gap-2 rounded-lg border p-2 transition-colors',
+                              notification.tone === 'danger' && 'border-rose-200 bg-rose-50 hover:bg-rose-100',
+                              notification.tone === 'warning' && 'border-amber-200 bg-amber-50 hover:bg-amber-100',
+                              notification.tone === 'info' && 'border-slate-200 bg-slate-50 hover:bg-slate-100'
+                            )}
+                          >
+                            {notification.tone === 'info' ? (
+                              <Info className="mt-0.5 h-4 w-4 text-slate-600" />
+                            ) : (
+                              <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" />
+                            )}
+                            <span className="space-y-0.5">
+                              <span className="block text-xs font-semibold text-slate-800">{notification.title}</span>
+                              <span className="block text-[11px] text-slate-600">{notification.description}</span>
+                            </span>
+                          </Link>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
 
-                <div className={cn(
-                  'inline-flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm sm:w-fit',
-                  criticalNotificationsCount > 0
-                    ? 'border-amber-200 bg-amber-50 text-amber-700'
-                    : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                )}>
-                  <Bell className="h-4 w-4" />
-                  <span>
-                    {criticalNotificationsCount > 0
-                      ? `${criticalNotificationsCount} تنبيه يحتاج متابعة`
-                      : 'لا توجد تنبيهات حرجة'}
-                  </span>
-                </div>
-
-                <div className="inline-flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 sm:w-fit">
-                  <Box className="h-4 w-4 text-primary" />
-                  <span>إجمالي المنتجات: {products.length}</span>
+                  <div className={cn(
+                    'inline-flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm sm:w-fit',
+                    criticalNotificationsCount > 0
+                      ? 'border-amber-200 bg-amber-50 text-amber-700'
+                      : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  )}>
+                    <Bell className="h-4 w-4" />
+                    <span>
+                      {criticalNotificationsCount > 0
+                        ? `${criticalNotificationsCount} تنبيه يحتاج متابعة`
+                        : 'لا توجد تنبيهات حرجة'}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {headerSummaryCards.map((card) => (
-                <div key={card.label} className={`rounded-2xl border px-4 py-3 shadow-sm ${card.tone}`}>
-                  <p className="text-xs font-semibold opacity-80">{card.label}</p>
-                  <p className="mt-1 text-xl font-black">{card.value}</p>
-                </div>
-              ))}
-            </div>
+
+              {/* بطاقات الإحصائيات */}
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {statsCards.map((card) => (
+                  <div key={card.label} className={`rounded-2xl border px-4 py-3 shadow-sm ${card.tone}`}>
+                    <div className="flex items-center gap-2">
+                      <card.icon className="h-4 w-4 opacity-70" />
+                      <p className="text-xs font-semibold opacity-80">{card.label}</p>
+                    </div>
+                    <p className="mt-2 text-xl font-black">{card.value}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
+          {/* روابط التنقل السريع */}
           <div className={cn('rounded-2xl border border-slate-200/80 bg-white shadow-sm', compactMode ? 'p-2.5 md:p-3' : 'p-3 md:p-4')}>
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-700">أزرار التنقل السريع</p>
+              <p className="text-sm font-semibold text-slate-700">روابط التنقل السريع</p>
               <p className="text-xs text-slate-500">انتقال مباشر لأقسام لوحة التحكم</p>
             </div>
             <div className="grid gap-2 sm:flex sm:overflow-x-auto sm:pb-1">
@@ -394,10 +505,6 @@ export function AdminLayout() {
                 {dashboardQuickLinks.map((item) => {
                   const Icon = item.icon;
                   const isActive = isDashboardAnchorActive(item.hash);
-                  const quickLabel =
-                    item.hash === '#total-products'
-                      ? `إجمالي المنتجات: ${products.length}`
-                      : item.label;
                   return (
                     <Link
                       key={`dash-${item.path}`}
@@ -411,7 +518,7 @@ export function AdminLayout() {
                     >
                       <span className="flex items-center gap-2">
                         <Icon className="h-4 w-4" />
-                        <span className="text-xs font-medium">{quickLabel}</span>
+                        <span className="text-xs font-medium">{item.label}</span>
                       </span>
                       <ChevronLeft className="h-3.5 w-3.5 opacity-70" />
                     </Link>
@@ -421,53 +528,44 @@ export function AdminLayout() {
             </div>
           </div>
 
-          <div className={cn('grid sm:grid-cols-2 xl:grid-cols-4', compactMode ? 'gap-2.5' : 'gap-3')}>
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs text-slate-500">إجمالي المنتجات</p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">{products.length}</p>
-            </div>
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 shadow-sm">
-              <p className="flex items-center gap-1.5 text-xs text-emerald-700">
-                <PackageCheck className="h-3.5 w-3.5" />
-                متوفر في المخزون
-              </p>
-              <p className="mt-1 text-2xl font-bold text-emerald-700">{availableProducts}</p>
-            </div>
-            <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-4 shadow-sm">
-              <p className="flex items-center gap-1.5 text-xs text-rose-700">
-                <PackageX className="h-3.5 w-3.5" />
-                غير متوفر
-              </p>
-              <p className="mt-1 text-2xl font-bold text-rose-700">{unavailableProducts}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs text-slate-500">دورك الحالي</p>
-              <p className="mt-1 text-lg font-bold text-slate-900">
-                {user ? ROLE_LABELS[user.role] : 'غير معروف'}
-              </p>
+          {/* بطاقة معلومات الدور */}
+          <div className={cn('rounded-xl border border-slate-200 bg-white p-4 shadow-sm', compactMode ? 'p-3' : 'p-4')}>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                <Shield className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">دورك الحالي</p>
+                <p className="text-lg font-bold text-slate-900">
+                  {user ? ROLE_LABELS[user.role] : 'غير معروف'}
+                </p>
+              </div>
             </div>
           </div>
 
+          {/* المحتوى الرئيسي */}
           <div className="space-y-4">
             <Outlet />
           </div>
         </main>
       </div>
-      <div className="px-3 pb-3 pt-1 lg:hidden">
-        <div className="mx-auto grid max-w-3xl grid-cols-2 gap-2 rounded-2xl border border-slate-200/80 bg-white/95 p-2 shadow-lg backdrop-blur">
+
+      {/* شريط التنقل السفلي للهاتف */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-white/95 backdrop-blur border-t border-slate-200/80 px-3 py-2">
+        <div className="mx-auto max-w-3xl grid grid-cols-3 gap-2">
           {visibleMenuItems.map((item) => {
             const Icon = item.icon;
             const isActive = isPathActive(item.path);
             return (
               <Link
-                key={`mobile-${item.path}`}
+                key={`mobile-bottom-${item.path}`}
                 to={item.path}
                 className={cn(
-                  'flex min-w-0 flex-col items-center gap-1 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors',
-                  isActive ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'
+                  'flex flex-col items-center gap-1 rounded-xl px-2 py-2 text-center text-xs font-semibold transition-colors',
+                  isActive ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-100'
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-5 w-5" />
                 <span>{item.label}</span>
               </Link>
             );

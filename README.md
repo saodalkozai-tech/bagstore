@@ -254,15 +254,20 @@ npx tsc --noEmit
 
 تمت إضافة Workflow للنشر التلقائي إلى Firebase Hosting عند كل Push على `main` أو `master`:
 - الملف: `.github/workflows/firebase-hosting-deploy.yml`
-- المشروع المستهدف: `hr-accessories`
+- المشروع المستهدف: `your-firebase-project-id`
 
 حتى يعمل النشر، أضف Secret في GitHub:
-- `FIREBASE_SERVICE_ACCOUNT_HR_ACCESSORIES`
+- `FIREBASE_SERVICE_ACCOUNT`
 
 طريقة تجهيز الـ Secret:
 1. Firebase Console > Project Settings > Service accounts.
 2. Generate new private key (JSON).
 3. انسخ كامل محتوى JSON وضعه في GitHub Secret بالاسم أعلاه.
+
+ملاحظة: قبل النشر، تأكد من تحديث اسم مشروعك في:
+- `.firebaserc`
+- `.github/workflows/firebase-hosting-deploy.yml`
+- استبدل `your-firebase-project-id` بمعرف مشروعك الفعلي
 
 ## نشر Firebase Hosting والتحديث
 
@@ -271,8 +276,10 @@ npx tsc --noEmit
 ```bash
 npm install
 npm run firebase:login
-npm run firebase:use
+npm run firebase:use your-firebase-project-id
 ```
+
+ملاحظة: استبدل `your-firebase-project-id` بمعرف مشروعك الفعلي
 
 ### رفع التحديثات إلى GitHub يدويًا
 
@@ -304,7 +311,9 @@ npm run deploy
 
 هذا الأمر يقوم بـ:
 - بناء المشروع (`npm run build`)
-- رفع آخر نسخة إلى Firebase Hosting (مشروع `hr-accessories`)
+- رفع آخر نسخة إلى Firebase Hosting (مشروع `your-firebase-project-id`)
+
+ملاحظة: تأكد من تحديث اسم المشروع في `.firebaserc` قبل النشر
 
 ### دورة العمل الكاملة: GitHub ثم Firebase
 

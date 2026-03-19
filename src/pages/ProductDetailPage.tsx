@@ -71,15 +71,17 @@ export function ProductDetailPage() {
           {product.images.length > 1 && (
             <div className="grid grid-cols-4 gap-2 sm:gap-4">
               {product.images.map((image, index) => (
-                <button
+                <Button
                   key={index}
+                  variant="ghost"
                   onClick={() => setSelectedImage(index)}
-                  className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                  aria-label={`عرض الصورة ${index + 1} من ${product.images.length}`}
+                  className={`aspect-square rounded-lg overflow-hidden border-2 transition-all p-0 ${
                     selectedImage === index ? 'border-primary' : 'border-transparent'
                   }`}
                 >
-                  <img src={image} alt="" className="h-full w-full object-contain p-1" />
-                </button>
+                  <img src={image} alt={`صورة ${index + 1} من ${product.images.length}`} className="h-full w-full object-contain p-1" />
+                </Button>
               ))}
             </div>
           )}

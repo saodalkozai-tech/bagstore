@@ -57,6 +57,33 @@ const CLOUD_TABLES = {
 const CLOUD_SETTINGS_KEY = 'default';
 export const CLOUD_SYNC_ERROR_EVENT = 'bagstore:cloud-sync-error';
 export const PRODUCTS_UPDATED_EVENT = 'bagstore:products-updated';
+
+/**
+ * تفريغ جميع البيانات المحلية من التخزين المحلي
+ * سيتم حذف: المنتجات، المستخدمين، الإعدادات، السجلات، الجلسات، والبيانات الأخرى
+ */
+export function clearAllLocalStorage(): void {
+  try {
+    // حفظ الإعدادات الافتراضية قبل الحذف
+    const settings = getStoreSettings();
+
+    // تفريغ جميع البيانات المحلية
+    Object.values(STORAGE_KEYS).forEach(key => {
+      localStorage.removeItem(key);
+    });
+
+    // إعادة تعيين الإعدادات الافتراضية
+    saveStoreSettings(DEFAULT_SETTINGS);
+
+    // إرسال حدث تحديث المنتجات
+    window.dispatchEvent(new Event(PRODUCTS_UPDATED_EVENT));
+
+    return { success: true, message: 'تم تفريغ قاعدة البيانات المحلية بنجاح' };
+  } catch (error) {
+    console.error('خطأ في تفريغ قاعدة البيانات المحلية:', error);
+    return { success: false, message: 'فشل تفريغ قاعدة البيانات المحلية' };
+  }
+}
 type StoredUser = User & { password: string };
 type UserMutationResult = {
   success: boolean;
@@ -168,20 +195,20 @@ function toSafeCounterRecord(value: unknown): Record<string, number> {
 
 function pruneVisitorDayStats(stats: Record<string, number>, keepDays = 400): Record<string, number> {
   const sortedKeys = Object.keys(stats).sort();
-  if (sortedKeys.length <= keepDays) return stats;
+  if (sortedKeys.length <= keepDays) { return stats; }
   const keep = new Set(sortedKeys.slice(-keepDays));
   return sortedKeys.reduce<Record<string, number>>((acc, key) => {
-    if (keep.has(key)) acc[key] = stats[key];
+    if (keep.has(key)) { acc[key] = stats[key]; }
     return acc;
   }, {});
 }
 
 function pruneVisitorMonthStats(stats: Record<string, number>, keepMonths = 36): Record<string, number> {
   const sortedKeys = Object.keys(stats).sort();
-  if (sortedKeys.length <= keepMonths) return stats;
+  if (sortedKeys.length <= keepMonths) { return stats; }
   const keep = new Set(sortedKeys.slice(-keepMonths));
   return sortedKeys.reduce<Record<string, number>>((acc, key) => {
-    if (keep.has(key)) acc[key] = stats[key];
+    if (keep.has(key)) { acc[key] = stats[key]; }
     return acc;
   }, {});
 }

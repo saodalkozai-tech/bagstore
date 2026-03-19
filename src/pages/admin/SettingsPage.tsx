@@ -721,6 +721,8 @@ export function SettingsPage() {
                 accept="image/*"
                 onChange={handleLogoFileChange}
                 className="hidden"
+                aria-label="رفع شعار المتجر"
+                title="رفع شعار المتجر"
               />
             </div>
               </div>
@@ -747,6 +749,8 @@ export function SettingsPage() {
                     type="file"
                     accept="image/*"
                     onChange={handleFaviconFileChange}
+                    aria-label="رفع أيقونة المتصفح"
+                    title="رفع أيقونة المتصفح"
                     className="hidden"
                   />
                 </div>
@@ -774,6 +778,8 @@ export function SettingsPage() {
                     multiple
                     onChange={handleHeroFileChange}
                     className="hidden"
+                    aria-label="رفع صور الواجهة الرئيسية"
+                    title="رفع صور الواجهة الرئيسية"
                   />
                 </div>
                 {settings.heroImageUrls.length > 0 ? (
@@ -886,6 +892,8 @@ export function SettingsPage() {
                           value={category}
                           onChange={(e) => handleFooterCategoryChange(index, e.target.value)}
                           placeholder="اسم الفئة"
+                          aria-label={`اسم فئة الفوتر ${index + 1}`}
+                          title={`تعديل فئة الفوتر ${index + 1}`}
                         />
                         <Button
                           type="button"
@@ -923,16 +931,22 @@ export function SettingsPage() {
                           value={item.message || ''}
                           onChange={(e) => handleQuickLinkChange(index, 'message', e.target.value)}
                           placeholder="رسالة أمام الرابط"
+                          aria-label={`رسالة الرابط السريع ${index + 1}`}
+                          title={`تعديل رسالة الرابط السريع ${index + 1}`}
                         />
                         <Input
                           value={item.label}
                           onChange={(e) => handleQuickLinkChange(index, 'label', e.target.value)}
                           placeholder="النص الظاهر"
+                          aria-label={`نص الرابط السريع ${index + 1}`}
+                          title={`تعديل نص الرابط السريع ${index + 1}`}
                         />
                         <Input
                           value={item.url}
                           onChange={(e) => handleQuickLinkChange(index, 'url', e.target.value)}
                           placeholder="/products أو https://example.com"
+                          aria-label={`رابط الرابط السريع ${index + 1}`}
+                          title={`تعديل رابط الرابط السريع ${index + 1}`}
                         />
                         <Button
                           type="button"
@@ -1185,12 +1199,16 @@ export function SettingsPage() {
               value={newUser.name}
               onChange={(e) => setNewUser((prev) => ({ ...prev, name: e.target.value }))}
               disabled={firebaseAuthEnabled}
+              aria-label="اسم المستخدم الجديد"
+              title="اسم المستخدم الجديد"
             />
             <Input
               placeholder="اسم المستخدم"
               value={newUser.username}
               onChange={(e) => setNewUser((prev) => ({ ...prev, username: e.target.value }))}
               disabled={firebaseAuthEnabled}
+              aria-label="اسم المستخدم الجديد"
+              title="اسم المستخدم الجديد"
             />
             <Input
               placeholder="البريد الإلكتروني"
@@ -1198,6 +1216,8 @@ export function SettingsPage() {
               value={newUser.email}
               onChange={(e) => setNewUser((prev) => ({ ...prev, email: e.target.value }))}
               disabled={firebaseAuthEnabled}
+              aria-label="البريد الإلكتروني للمستخدم الجديد"
+              title="البريد الإلكتروني للمستخدم الجديد"
             />
             <Select
               value={newUser.role}
@@ -1219,6 +1239,8 @@ export function SettingsPage() {
               value={newUser.password}
               onChange={(e) => setNewUser((prev) => ({ ...prev, password: e.target.value }))}
               disabled={firebaseAuthEnabled}
+              aria-label="كلمة مرور المستخدم الجديد"
+              title="كلمة مرور المستخدم الجديد"
             />
           </div>
           <Button type="button" onClick={handleAddUser} disabled={firebaseAuthEnabled} className="w-full sm:w-auto">
