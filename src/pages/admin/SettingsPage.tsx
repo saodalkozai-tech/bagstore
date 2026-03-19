@@ -7,11 +7,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Eye, EyeOff, Plus, Save, Trash2, Upload, UserCog } from 'lucide-react';
+import {
+  Database,
+  Eye,
+  EyeOff,
+  ImageUp,
+  LayoutTemplate,
+  Palette,
+  Plus,
+  RefreshCcw,
+  Save,
+  Shield,
+  Store,
+  Trash2,
+  Upload,
+  UserCog,
+  Users
+} from 'lucide-react';
 import {
   createAdminUser,
   getAdminUsers,
   getStoreSettings,
+  refreshProductsFromSupabase,
   removeAdminUser,
   saveStoreSettings,
   syncLocalDataToSupabase,
@@ -48,6 +65,65 @@ const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 type SettingsSection = 'store' | 'cloudinary' | 'database' | 'users' | 'display' | 'security';
 
+const SETTINGS_SECTIONS: Array<{
+  id: SettingsSection;
+  label: string;
+  description: string;
+  icon: typeof Store;
+}> = [
+  { id: 'store', label: 'معلومات المتجر', description: 'الهوية والتواصل', icon: Store },
+  { id: 'cloudinary', label: 'Cloudinary', description: 'رفع الصور', icon: ImageUp },
+  { id: 'database', label: 'قاعدة البيانات', description: 'الربط والمزامنة', icon: Database },
+  { id: 'users', label: 'المستخدمون', description: 'إدارة لوحة التحكم', icon: Users },
+  { id: 'display', label: 'إعدادات العرض', description: 'الألوان والواجهة', icon: Palette },
+  { id: 'security', label: 'الأمان', description: 'كلمات المرور', icon: Shield }
+];
+
+const STORE_INFO_FIELDS: Array<{
+  key: keyof StoreSettings;
+  id: string;
+  label: string;
+  type?: React.HTMLInputTypeAttribute;
+  placeholder?: string;
+  description?: string;
+}> = [
+  { key: 'storeName', id: 'storeName', label: 'اسم المتجر' },
+  { key: 'storeEmail', id: 'storeEmail', label: 'البريد الإلكتروني', type: 'email' },
+  { key: 'storePhone', id: 'storePhone', label: 'رقم الهاتف' },
+  {
+    key: 'whatsapp',
+    id: 'whatsapp',
+    label: 'رقم واتساب',
+    description: 'سيتم استخدام هذا الرقم لاستقبال طلبات العملاء'
+  },
+  { key: 'userName', id: 'userName', label: 'اسم المسؤول المعروض' },
+  { key: 'userEmail', id: 'userEmail', label: 'بريد المسؤول', type: 'email' }
+];
+
+const SOCIAL_FIELDS: Array<{
+  key: keyof StoreSettings;
+  id: string;
+  label: string;
+  placeholder: string;
+}> = [
+  { key: 'facebookUrl', id: 'facebookUrl', label: 'رابط فيسبوك', placeholder: 'https://facebook.com/your-page' },
+  { key: 'instagramUrl', id: 'instagramUrl', label: 'رابط انستغرام', placeholder: 'https://instagram.com/your-page' },
+  { key: 'tiktokUrl', id: 'tiktokUrl', label: 'رابط تيك توك', placeholder: 'https://www.tiktok.com/@your-page' },
+  { key: 'youtubeUrl', id: 'youtubeUrl', label: 'رابط يوتيوب', placeholder: 'https://youtube.com/@your-channel' }
+];
+
+const DISPLAY_COLOR_FIELDS: Array<{
+  key: keyof StoreSettings;
+  id: string;
+  label: string;
+  placeholder: string;
+}> = [
+  { key: 'themePrimaryColor', id: 'themePrimaryColor', label: 'اللون الأساسي (Primary)', placeholder: '#d95f1f' },
+  { key: 'themeAccentColor', id: 'themeAccentColor', label: 'لون التمييز (Accent)', placeholder: '#d95f1f' },
+  { key: 'themeBackgroundColor', id: 'themeBackgroundColor', label: 'لون الخلفية (Background)', placeholder: '#ffffff' },
+  { key: 'themeForegroundColor', id: 'themeForegroundColor', label: 'لون النص الأساسي (Foreground)', placeholder: '#1a1a1a' }
+];
+
 export function SettingsPage() {
   const firebaseAuthEnabled = isFirebaseAuthEnabled();
   const initialSettings = useMemo(() => getStoreSettings(), []);
@@ -64,6 +140,7 @@ export function SettingsPage() {
   const [isUploadingFavicon, setIsUploadingFavicon] = useState(false);
   const [isUploadingHero, setIsUploadingHero] = useState(false);
   const [isSyncingSupabase, setIsSyncingSupabase] = useState(false);
+  const [isRefreshingProducts, setIsRefreshingProducts] = useState(false);
   const logoInputRef = useRef<HTMLInputElement | null>(null);
   const faviconInputRef = useRef<HTMLInputElement | null>(null);
   const heroInputRef = useRef<HTMLInputElement | null>(null);
@@ -74,6 +151,31 @@ export function SettingsPage() {
 
   const refreshUsers = () => {
     setUsers(getAdminUsers());
+  };
+
+  const buildNormalizedSettings = () =>
+    normalizeStoreSettings(settings, {
+      footerCategories: initialSettings.footerCategories,
+      quickLinks: initialSettings.quickLinks,
+      heroImageUrl: initialSettings.heroImageUrl,
+      heroImageUrls: initialSettings.heroImageUrls,
+      externalDbUrl: '',
+      externalDbName: '',
+      externalDbApiKey: ''
+    });
+
+  const ensureCloudSyncReady = (targetSettings: StoreSettings): boolean => {
+    if (!targetSettings.externalDbEnabled) {
+      toast.info('فعّل المزامنة السحابية أولًا قبل تنفيذ المزامنة اليدوية.');
+      return false;
+    }
+
+    if (!targetSettings.externalDbUrl.trim() || !targetSettings.externalDbApiKey.trim()) {
+      toast.error('أدخل إعدادات Supabase كاملة قبل المزامنة.');
+      return false;
+    }
+
+    return true;
   };
 
   const handleSave = async () => {
@@ -95,15 +197,7 @@ export function SettingsPage() {
       return;
     }
 
-    const normalizedSettings: StoreSettings = normalizeStoreSettings(settings, {
-      footerCategories: initialSettings.footerCategories,
-      quickLinks: initialSettings.quickLinks,
-      heroImageUrl: initialSettings.heroImageUrl,
-      heroImageUrls: initialSettings.heroImageUrls,
-      externalDbUrl: '',
-      externalDbName: '',
-      externalDbApiKey: ''
-    });
+    const normalizedSettings = buildNormalizedSettings();
 
     saveStoreSettings(normalizedSettings);
     setSettings(normalizedSettings);
@@ -131,16 +225,13 @@ export function SettingsPage() {
   };
 
   const handleSyncSupabase = async () => {
-    if (!settings.externalDbEnabled) {
-      toast.info('فعّل المزامنة السحابية أولًا قبل تنفيذ المزامنة اليدوية.');
+    const normalizedSettings = buildNormalizedSettings();
+    if (!ensureCloudSyncReady(normalizedSettings)) {
       return;
     }
 
-    if (!settings.externalDbUrl.trim() || !settings.externalDbApiKey.trim()) {
-      toast.error('أدخل إعدادات Supabase كاملة قبل المزامنة.');
-      return;
-    }
-
+    saveStoreSettings(normalizedSettings);
+    setSettings(normalizedSettings);
     setIsSyncingSupabase(true);
     try {
       await syncLocalDataToSupabase();
@@ -149,6 +240,55 @@ export function SettingsPage() {
       toast.error(error instanceof Error ? error.message : 'فشل ربط البيانات مع Supabase');
     } finally {
       setIsSyncingSupabase(false);
+    }
+  };
+
+  const handleRefreshProducts = async () => {
+    const normalizedSettings = buildNormalizedSettings();
+    if (!ensureCloudSyncReady(normalizedSettings)) {
+      return;
+    }
+
+    saveStoreSettings(normalizedSettings);
+    setSettings(normalizedSettings);
+    setIsRefreshingProducts(true);
+    try {
+      const changed = await refreshProductsFromSupabase();
+      if (changed) {
+        toast.success('تم تحديث المنتجات المحلية مباشرة من قاعدة البيانات');
+      } else {
+        toast.success('المنتجات المحلية محدثة بالفعل ولا توجد تغييرات جديدة');
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'فشل تحديث المنتجات من قاعدة البيانات');
+    } finally {
+      setIsRefreshingProducts(false);
+    }
+  };
+
+  const handleFullDatabaseSync = async () => {
+    const normalizedSettings = buildNormalizedSettings();
+    if (!ensureCloudSyncReady(normalizedSettings)) {
+      return;
+    }
+
+    saveStoreSettings(normalizedSettings);
+    setSettings(normalizedSettings);
+    setIsSyncingSupabase(true);
+    setIsRefreshingProducts(true);
+    try {
+      await syncLocalDataToSupabase();
+      const productsChanged = await refreshProductsFromSupabase();
+      toast.success(
+        productsChanged
+          ? 'تمت مزامنة قاعدة البيانات بالكامل وتحديث المنتجات من Supabase'
+          : 'تمت مزامنة قاعدة البيانات بالكامل، والمنتجات المحلية كانت محدثة بالفعل'
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'فشلت المزامنة الشاملة مع قاعدة البيانات');
+    } finally {
+      setIsSyncingSupabase(false);
+      setIsRefreshingProducts(false);
     }
   };
 
@@ -440,15 +580,27 @@ export function SettingsPage() {
         <div className="sticky top-20 z-20 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-semibold text-slate-700">التنقل بين أقسام الإعدادات</p>
-            <p className="text-xs text-slate-500">تبويبات منفصلة لكل جزء</p>
+            <p className="text-xs text-slate-500">مجموعات واضحة بدون تكرار في القوائم</p>
           </div>
           <TabsList className="grid h-auto w-full grid-cols-1 gap-2 bg-transparent p-0 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            <TabsTrigger value="store" className="justify-start">معلومات المتجر</TabsTrigger>
-            <TabsTrigger value="cloudinary" className="justify-start">Cloudinary</TabsTrigger>
-            <TabsTrigger value="database" className="justify-start">قاعدة البيانات</TabsTrigger>
-            <TabsTrigger value="users" className="justify-start">المستخدمون</TabsTrigger>
-            <TabsTrigger value="display" className="justify-start">إعدادات العرض</TabsTrigger>
-            <TabsTrigger value="security" className="justify-start">الأمان</TabsTrigger>
+            {SETTINGS_SECTIONS.map((section) => {
+              const Icon = section.icon;
+              return (
+                <TabsTrigger
+                  key={section.id}
+                  value={section.id}
+                  className="h-auto justify-start rounded-lg border border-slate-200 bg-white px-3 py-3 text-right data-[state=active]:border-slate-900 data-[state=active]:bg-slate-900 data-[state=active]:text-white"
+                >
+                  <span className="ml-3 rounded-md bg-slate-100 p-2 text-slate-700">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="flex flex-col items-start gap-0.5">
+                    <span className="text-sm font-semibold">{section.label}</span>
+                    <span className="text-xs opacity-80">{section.description}</span>
+                  </span>
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
         </div>
       </Tabs>
@@ -457,64 +609,42 @@ export function SettingsPage() {
       <Card className="border-slate-200 shadow-sm">
         <CardHeader>
           <CardTitle>معلومات المتجر</CardTitle>
-          <CardDescription>معلومات أساسية عن المتجر</CardDescription>
+          <CardDescription>مرتب حسب الهوية، الوسائط، التواصل وروابط الواجهة</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="storeName">اسم المتجر</Label>
-            <Input
-              id="storeName"
-              value={settings.storeName}
-              onChange={(e) => setSettings((prev) => ({ ...prev, storeName: e.target.value }))}
-            />
+        <CardContent className="space-y-6">
+          <div className="rounded-xl border border-slate-200 p-4">
+            <div className="mb-4">
+              <h3 className="font-semibold text-slate-900">الهوية ومعلومات التواصل</h3>
+              <p className="text-sm text-slate-500">البيانات الأساسية التي تظهر للعملاء وفي لوحة التحكم.</p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {STORE_INFO_FIELDS.map((field) => (
+                <div key={field.id} className="space-y-2">
+                  <Label htmlFor={field.id}>{field.label}</Label>
+                  <Input
+                    id={field.id}
+                    type={field.type}
+                    value={String(settings[field.key] ?? '')}
+                    placeholder={field.placeholder}
+                    onChange={(e) =>
+                      setSettings((prev) => ({ ...prev, [field.key]: e.target.value }))
+                    }
+                  />
+                  {field.description ? (
+                    <p className="text-xs text-muted-foreground">{field.description}</p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="storeEmail">البريد الإلكتروني</Label>
-            <Input
-              id="storeEmail"
-              type="email"
-              value={settings.storeEmail}
-              onChange={(e) => setSettings((prev) => ({ ...prev, storeEmail: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="storePhone">رقم الهاتف</Label>
-            <Input
-              id="storePhone"
-              value={settings.storePhone}
-              onChange={(e) => setSettings((prev) => ({ ...prev, storePhone: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="whatsapp">رقم واتساب</Label>
-            <Input
-              id="whatsapp"
-              value={settings.whatsapp}
-              onChange={(e) => setSettings((prev) => ({ ...prev, whatsapp: e.target.value }))}
-            />
-            <p className="text-xs text-muted-foreground">
-              سيتم استخدام هذا الرقم لاستقبال طلبات العملاء
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="userName">اسم المسؤول المعروض</Label>
-            <Input
-              id="userName"
-              value={settings.userName}
-              onChange={(e) => setSettings((prev) => ({ ...prev, userName: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="userEmail">بريد المسؤول</Label>
-            <Input
-              id="userEmail"
-              type="email"
-              value={settings.userEmail}
-              onChange={(e) => setSettings((prev) => ({ ...prev, userEmail: e.target.value }))}
-            />
-          </div>
-          <Separator />
-          <div className="space-y-2">
+
+          <div className="rounded-xl border border-slate-200 p-4">
+            <div className="mb-4">
+              <h3 className="font-semibold text-slate-900">الهوية البصرية والوسائط</h3>
+              <p className="text-sm text-slate-500">الشعار والأيقونة وصور الواجهة الرئيسية من مكان واحد.</p>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
             <Label htmlFor="logoUrl">رابط الشعار (Logo)</Label>
             <div className="flex flex-col gap-2 md:flex-row">
               <Input
@@ -540,87 +670,86 @@ export function SettingsPage() {
                 className="hidden"
               />
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="faviconUrl">رابط أيقونة المتصفح (Favicon)</Label>
-            <div className="flex flex-col gap-2 md:flex-row">
-              <Input
-                id="faviconUrl"
-                value={settings.faviconUrl}
-                onChange={(e) => setSettings((prev) => ({ ...prev, faviconUrl: e.target.value }))}
-                placeholder="https://example.com/favicon.png"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => faviconInputRef.current?.click()}
-                disabled={isUploadingFavicon}
-              >
-                <Upload className="w-4 h-4 ml-2" />
-                {isUploadingFavicon ? 'جار الرفع...' : 'رفع إلى Cloudinary'}
-              </Button>
-              <input
-                ref={faviconInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFaviconFileChange}
-                className="hidden"
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>صور الواجهة الرئيسية المتحركة (Hero)</Label>
-            <div className="flex flex-col gap-2 md:flex-row">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => heroInputRef.current?.click()}
-                disabled={isUploadingHero}
-              >
-                <Upload className="w-4 h-4 ml-2" />
-                {isUploadingHero ? 'جار الرفع...' : 'رفع صور إلى Cloudinary'}
-              </Button>
-              <Button type="button" variant="outline" onClick={addHeroImageRow}>
-                <Plus className="w-4 h-4 ml-2" />
-                إضافة رابط صورة
-              </Button>
-              <input
-                ref={heroInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleHeroFileChange}
-                className="hidden"
-              />
-            </div>
-            {settings.heroImageUrls.length > 0 ? (
-              <div className="space-y-2">
-                {settings.heroImageUrls.map((url, index) => (
-                  <div key={`${index}-${url}`} className="flex items-center gap-2">
-                    <Input
-                      value={url}
-                      onChange={(e) => handleHeroImageChange(index, e.target.value)}
-                      placeholder="https://example.com/hero.jpg"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => removeHeroImage(index)}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </Button>
-                  </div>
-                ))}
               </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                لم تتم إضافة صور بعد. عند إضافة أكثر من صورة سيتم تبديلها تلقائيًا في الصفحة الرئيسية.
-              </p>
-            )}
-          </div>
-          <Separator />
-          <div className="grid md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="faviconUrl">رابط أيقونة المتصفح (Favicon)</Label>
+                <div className="flex flex-col gap-2 md:flex-row">
+                  <Input
+                    id="faviconUrl"
+                    value={settings.faviconUrl}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, faviconUrl: e.target.value }))}
+                    placeholder="https://example.com/favicon.png"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => faviconInputRef.current?.click()}
+                    disabled={isUploadingFavicon}
+                  >
+                    <Upload className="w-4 h-4 ml-2" />
+                    {isUploadingFavicon ? 'جار الرفع...' : 'رفع إلى Cloudinary'}
+                  </Button>
+                  <input
+                    ref={faviconInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFaviconFileChange}
+                    className="hidden"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>صور الواجهة الرئيسية المتحركة (Hero)</Label>
+                <div className="flex flex-col gap-2 md:flex-row">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => heroInputRef.current?.click()}
+                    disabled={isUploadingHero}
+                  >
+                    <Upload className="w-4 h-4 ml-2" />
+                    {isUploadingHero ? 'جار الرفع...' : 'رفع صور إلى Cloudinary'}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={addHeroImageRow}>
+                    <Plus className="w-4 h-4 ml-2" />
+                    إضافة رابط صورة
+                  </Button>
+                  <input
+                    ref={heroInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleHeroFileChange}
+                    className="hidden"
+                  />
+                </div>
+                {settings.heroImageUrls.length > 0 ? (
+                  <div className="space-y-2">
+                    {settings.heroImageUrls.map((url, index) => (
+                      <div key={`${index}-${url}`} className="flex items-center gap-2">
+                        <Input
+                          value={url}
+                          onChange={(e) => handleHeroImageChange(index, e.target.value)}
+                          placeholder="https://example.com/hero.jpg"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => removeHeroImage(index)}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    لم تتم إضافة صور بعد. عند إضافة أكثر من صورة سيتم تبديلها تلقائيًا في الصفحة الرئيسية.
+                  </p>
+                )}
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="logoHeightNavbar">ارتفاع شعار أعلى الصفحة (px)</Label>
               <Input
@@ -658,119 +787,115 @@ export function SettingsPage() {
                 }
               />
             </div>
-          </div>
-          <Separator />
-          <div className="space-y-2">
-            <Label htmlFor="facebookUrl">رابط فيسبوك</Label>
-            <Input
-              id="facebookUrl"
-              value={settings.facebookUrl}
-              onChange={(e) => setSettings((prev) => ({ ...prev, facebookUrl: e.target.value }))}
-              placeholder="https://facebook.com/your-page"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="instagramUrl">رابط انستغرام</Label>
-            <Input
-              id="instagramUrl"
-              value={settings.instagramUrl}
-              onChange={(e) => setSettings((prev) => ({ ...prev, instagramUrl: e.target.value }))}
-              placeholder="https://instagram.com/your-page"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="tiktokUrl">رابط تيك توك</Label>
-            <Input
-              id="tiktokUrl"
-              value={settings.tiktokUrl}
-              onChange={(e) => setSettings((prev) => ({ ...prev, tiktokUrl: e.target.value }))}
-              placeholder="https://www.tiktok.com/@your-page"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="youtubeUrl">رابط يوتيوب</Label>
-            <Input
-              id="youtubeUrl"
-              value={settings.youtubeUrl}
-              onChange={(e) => setSettings((prev) => ({ ...prev, youtubeUrl: e.target.value }))}
-              placeholder="https://youtube.com/@your-channel"
-            />
-          </div>
-          <Separator />
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <Label>الفئات</Label>
-              <Button type="button" variant="outline" size="sm" onClick={addFooterCategoryRow}>
-                <Plus className="w-4 h-4 ml-2" />
-                إضافة فئة
-              </Button>
+              </div>
             </div>
-            {settings.footerCategories.length > 0 ? (
-              <div className="space-y-2">
-                {settings.footerCategories.map((category, index) => (
-                  <div key={`${index}-${category}`} className="flex items-center gap-2">
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-[1.05fr_1.35fr]">
+            <div className="rounded-xl border border-slate-200 p-4">
+              <div className="mb-4">
+                <h3 className="font-semibold text-slate-900">روابط التواصل الاجتماعي</h3>
+                <p className="text-sm text-slate-500">روابط الظهور الخارجي للمتجر على المنصات الاجتماعية.</p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+                {SOCIAL_FIELDS.map((field) => (
+                  <div key={field.id} className="space-y-2">
+                    <Label htmlFor={field.id}>{field.label}</Label>
                     <Input
-                      value={category}
-                      onChange={(e) => handleFooterCategoryChange(index, e.target.value)}
-                      placeholder="اسم الفئة"
+                      id={field.id}
+                      value={String(settings[field.key] ?? '')}
+                      onChange={(e) => setSettings((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                      placeholder={field.placeholder}
                     />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => removeFooterCategory(index)}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </Button>
                   </div>
                 ))}
               </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">لا توجد فئات مضافة حتى الآن.</p>
-            )}
-          </div>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <Label>الروابط السريعة</Label>
-              <Button type="button" variant="outline" size="sm" onClick={addQuickLinkRow}>
-                <Plus className="w-4 h-4 ml-2" />
-                إضافة رابط
-              </Button>
             </div>
-            {settings.quickLinks.length > 0 ? (
-              <div className="space-y-2">
-                {settings.quickLinks.map((item, index) => (
-                  <div key={`${index}-${item.label}-${item.url}`} className="grid gap-2 md:grid-cols-[1fr_1fr_1fr_auto]">
-                    <Input
-                      value={item.message || ''}
-                      onChange={(e) => handleQuickLinkChange(index, 'message', e.target.value)}
-                      placeholder="رسالة أمام الرابط"
-                    />
-                    <Input
-                      value={item.label}
-                      onChange={(e) => handleQuickLinkChange(index, 'label', e.target.value)}
-                      placeholder="النص الظاهر"
-                    />
-                    <Input
-                      value={item.url}
-                      onChange={(e) => handleQuickLinkChange(index, 'url', e.target.value)}
-                      placeholder="/products أو https://example.com"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => removeQuickLink(index)}
-                      className="md:justify-self-end"
-                    >
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </Button>
+
+            <div className="space-y-6">
+              <div className="rounded-xl border border-slate-200 p-4">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-slate-900">فئات الفوتر</h3>
+                    <p className="text-sm text-slate-500">ترتيب الفئات الظاهرة أسفل الموقع.</p>
                   </div>
-                ))}
+                  <Button type="button" variant="outline" size="sm" onClick={addFooterCategoryRow}>
+                    <Plus className="w-4 h-4 ml-2" />
+                    إضافة فئة
+                  </Button>
+                </div>
+                {settings.footerCategories.length > 0 ? (
+                  <div className="space-y-2">
+                    {settings.footerCategories.map((category, index) => (
+                      <div key={`${index}-${category}`} className="flex items-center gap-2">
+                        <Input
+                          value={category}
+                          onChange={(e) => handleFooterCategoryChange(index, e.target.value)}
+                          placeholder="اسم الفئة"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => removeFooterCategory(index)}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">لا توجد فئات مضافة حتى الآن.</p>
+                )}
               </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">لا توجد روابط سريعة مضافة حتى الآن.</p>
-            )}
+
+              <div className="rounded-xl border border-slate-200 p-4">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-slate-900">الروابط السريعة</h3>
+                    <p className="text-sm text-slate-500">روابط مختصرة تظهر في واجهة المتجر أو الفوتر.</p>
+                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={addQuickLinkRow}>
+                    <Plus className="w-4 h-4 ml-2" />
+                    إضافة رابط
+                  </Button>
+                </div>
+                {settings.quickLinks.length > 0 ? (
+                  <div className="space-y-2">
+                    {settings.quickLinks.map((item, index) => (
+                      <div key={`${index}-${item.label}-${item.url}`} className="grid gap-2 md:grid-cols-[1fr_1fr_1fr_auto]">
+                        <Input
+                          value={item.message || ''}
+                          onChange={(e) => handleQuickLinkChange(index, 'message', e.target.value)}
+                          placeholder="رسالة أمام الرابط"
+                        />
+                        <Input
+                          value={item.label}
+                          onChange={(e) => handleQuickLinkChange(index, 'label', e.target.value)}
+                          placeholder="النص الظاهر"
+                        />
+                        <Input
+                          value={item.url}
+                          onChange={(e) => handleQuickLinkChange(index, 'url', e.target.value)}
+                          placeholder="/products أو https://example.com"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => removeQuickLink(index)}
+                          className="md:justify-self-end"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">لا توجد روابط سريعة مضافة حتى الآن.</p>
+                )}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -823,9 +948,9 @@ export function SettingsPage() {
       <Card className="border-slate-200 shadow-sm">
         <CardHeader>
           <CardTitle>إعدادات قاعدة البيانات السحابية</CardTitle>
-          <CardDescription>ربط المتجر بقاعدة بيانات خارجية على السحابة (إعدادات فقط)</CardDescription>
+          <CardDescription>حالة الاتصال، إعدادات الربط، وأوامر المزامنة اليدوية من مكان واحد</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <div
             className={`rounded-lg border px-3 py-2 text-sm ${
               isExternalDbConfigReady
@@ -835,89 +960,146 @@ export function SettingsPage() {
           >
             {isExternalDbConfigReady
               ? settings.externalDbEnabled
-                ? 'حالة الربط: جاهز والمزامنة السحابية مفعّلة للمنتجات والإعدادات والسجل.'
+                ? 'حالة الربط: جاهز والمزامنة السحابية مفعّلة للمنتجات والإعدادات وسجل النشاط.'
                 : 'الإعدادات مكتملة لكن المزامنة السحابية متوقفة حاليًا.'
               : 'حالة الربط: غير مكتمل. أدخل رابط Supabase ومفتاح API ثم فعّل المزامنة عند الحاجة.'}
           </div>
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div className="space-y-1">
-              <p className="font-medium">تفعيل قاعدة بيانات خارجية</p>
-              <p className="text-xs text-muted-foreground">
-                عند التفعيل سيتم مزامنة المنتجات والإعدادات والسجل فقط. مستخدمو الإدارة يبقون محليين أو عبر Firebase.
-              </p>
+
+          <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="space-y-6">
+              <div className="rounded-xl border border-slate-200 p-4">
+                <div className="mb-4 flex items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-1">
+                    <p className="font-medium">تفعيل قاعدة بيانات خارجية</p>
+                    <p className="text-xs text-muted-foreground">
+                      عند التفعيل سيتم مزامنة المنتجات والإعدادات والسجل فقط. مستخدمو الإدارة يبقون محليين أو عبر Firebase.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.externalDbEnabled}
+                    onCheckedChange={(checked) =>
+                      setSettings((prev) => ({ ...prev, externalDbEnabled: checked }))
+                    }
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="externalDbProvider">مزود قاعدة البيانات</Label>
+                    <Select
+                      value="supabase"
+                      disabled
+                      onValueChange={() => undefined}
+                    >
+                      <SelectTrigger id="externalDbProvider">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="supabase">Supabase</SelectItem>
+                        <SelectItem value="firebase">Firebase</SelectItem>
+                        <SelectItem value="mongodb">MongoDB Atlas</SelectItem>
+                        <SelectItem value="custom">Custom API</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      الربط الفعلي المطبق الآن يعمل مع Supabase فقط. لا تتم مزامنة مستخدمي الإدارة إلى السحابة.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="externalDbUrl">الرابط (URL / Endpoint)</Label>
+                      <Input
+                        id="externalDbUrl"
+                        value={settings.externalDbUrl}
+                        onChange={(e) => setSettings((prev) => ({ ...prev, externalDbUrl: e.target.value }))}
+                        placeholder="https://your-project.supabase.co"
+                        disabled={!settings.externalDbEnabled}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="externalDbName">اسم القاعدة أو المشروع</Label>
+                      <Input
+                        id="externalDbName"
+                        value={settings.externalDbName}
+                        onChange={(e) => setSettings((prev) => ({ ...prev, externalDbName: e.target.value }))}
+                        placeholder="bagstore-prod"
+                        disabled={!settings.externalDbEnabled}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="externalDbApiKey">API Key / Token</Label>
+                      <Input
+                        id="externalDbApiKey"
+                        type="password"
+                        value={settings.externalDbApiKey}
+                        onChange={(e) => setSettings((prev) => ({ ...prev, externalDbApiKey: e.target.value }))}
+                        placeholder="ضع مفتاح الوصول هنا"
+                        autoComplete="off"
+                        disabled={!settings.externalDbEnabled}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 p-4">
+                <div className="mb-4">
+                  <h3 className="font-semibold text-slate-900">أوامر المزامنة اليدوية</h3>
+                  <p className="text-sm text-slate-500">اختر بين مزامنة شاملة أو تحديث المنتجات فقط من قاعدة البيانات.</p>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  <Button
+                    type="button"
+                    onClick={handleFullDatabaseSync}
+                    disabled={isSyncingSupabase || isRefreshingProducts || !settings.externalDbEnabled}
+                    className="w-full"
+                  >
+                    <Database className="ml-2 h-4 w-4" />
+                    {isSyncingSupabase && isRefreshingProducts ? 'جارٍ تنفيذ المزامنة الشاملة...' : 'مزامنة قاعدة البيانات بالكامل'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSyncSupabase}
+                    disabled={isSyncingSupabase || isRefreshingProducts || !settings.externalDbEnabled}
+                    className="w-full"
+                  >
+                    <RefreshCcw className="ml-2 h-4 w-4" />
+                    {isSyncingSupabase ? 'جارٍ رفع البيانات...' : 'رفع البيانات المحلية إلى Supabase'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleRefreshProducts}
+                    disabled={isRefreshingProducts || isSyncingSupabase || !settings.externalDbEnabled}
+                    className="w-full"
+                  >
+                    <RefreshCcw className="ml-2 h-4 w-4" />
+                    {isRefreshingProducts ? 'جارٍ تحديث المنتجات...' : 'تحديث المنتجات من قاعدة البيانات'}
+                  </Button>
+                </div>
+              </div>
             </div>
-            <Switch
-              checked={settings.externalDbEnabled}
-              onCheckedChange={(checked) =>
-                setSettings((prev) => ({ ...prev, externalDbEnabled: checked }))
-              }
-            />
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="externalDbProvider">مزود قاعدة البيانات</Label>
-            <Select
-              value="supabase"
-              disabled
-              onValueChange={() => undefined}
-            >
-              <SelectTrigger id="externalDbProvider">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="supabase">Supabase</SelectItem>
-                <SelectItem value="firebase">Firebase</SelectItem>
-                <SelectItem value="mongodb">MongoDB Atlas</SelectItem>
-                <SelectItem value="custom">Custom API</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              الربط الفعلي المطبق الآن يعمل مع Supabase فقط. لا تتم مزامنة مستخدمي الإدارة إلى السحابة.
-            </p>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <h3 className="mb-4 font-semibold text-slate-900">ملخص سريع</h3>
+              <div className="space-y-3 text-sm text-slate-600">
+                <div className="rounded-lg border bg-white p-3">
+                  <p className="font-medium text-slate-900">ما الذي تتم مزامنته؟</p>
+                  <p className="mt-1">المنتجات، إعدادات المتجر، وسجل النشاط فقط.</p>
+                </div>
+                <div className="rounded-lg border bg-white p-3">
+                  <p className="font-medium text-slate-900">ما الذي لا تتم مزامنته؟</p>
+                  <p className="mt-1">مستخدمو لوحة التحكم يبقون محليين أو عبر Firebase ولا يُرفعون إلى Supabase.</p>
+                </div>
+                <div className="rounded-lg border bg-white p-3">
+                  <p className="font-medium text-slate-900">أفضل إجراء عند التعديل</p>
+                  <p className="mt-1">احفظ الإعدادات أولًا، ثم استخدم المزامنة الشاملة إذا أردت دفع كل التغييرات وتحديث المنتجات محليًا.</p>
+                </div>
+              </div>
+            </div>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="externalDbUrl">الرابط (URL / Endpoint)</Label>
-            <Input
-              id="externalDbUrl"
-              value={settings.externalDbUrl}
-              onChange={(e) => setSettings((prev) => ({ ...prev, externalDbUrl: e.target.value }))}
-              placeholder="https://your-project.supabase.co"
-              disabled={!settings.externalDbEnabled}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="externalDbName">اسم القاعدة أو المشروع</Label>
-            <Input
-              id="externalDbName"
-              value={settings.externalDbName}
-              onChange={(e) => setSettings((prev) => ({ ...prev, externalDbName: e.target.value }))}
-              placeholder="bagstore-prod"
-              disabled={!settings.externalDbEnabled}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="externalDbApiKey">API Key / Token</Label>
-            <Input
-              id="externalDbApiKey"
-              type="password"
-              value={settings.externalDbApiKey}
-              onChange={(e) => setSettings((prev) => ({ ...prev, externalDbApiKey: e.target.value }))}
-              placeholder="ضع مفتاح الوصول هنا"
-              autoComplete="off"
-              disabled={!settings.externalDbEnabled}
-            />
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleSyncSupabase}
-            disabled={isSyncingSupabase || !settings.externalDbEnabled}
-          >
-            {isSyncingSupabase ? 'جارٍ المزامنة...' : 'مزامنة البيانات المحلية مع Supabase الآن'}
-          </Button>
         </CardContent>
       </Card>
       )}
@@ -1062,117 +1244,78 @@ export function SettingsPage() {
       <Card className="border-slate-200 shadow-sm">
         <CardHeader>
           <CardTitle>إعدادات العرض</CardTitle>
-          <CardDescription>تخصيص مظهر المتجر</CardDescription>
+          <CardDescription>تنظيم خيارات العرض العامة والثيم داخل مجموعات أوضح</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="productsPerPage">عدد المنتجات في الصفحة</Label>
-            <Select
-              value={String(settings.productsPerPage)}
-              onValueChange={(value) => setSettings((prev) => ({ ...prev, productsPerPage: Number(value) }))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="8">8 منتجات</SelectItem>
-                <SelectItem value="12">12 منتج</SelectItem>
-                <SelectItem value="16">16 منتج</SelectItem>
-                <SelectItem value="24">24 منتج</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="currency">العملة</Label>
-            <Select
-              value={settings.currency}
-              onValueChange={(value: StoreSettings['currency']) => setSettings((prev) => ({ ...prev, currency: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="iqd">دينار عراقي (د.ع)</SelectItem>
-                <SelectItem value="usd">دولار أمريكي ($)</SelectItem>
-                <SelectItem value="eur">يورو (€)</SelectItem>
-                <SelectItem value="sar">ريال سعودي (ر.س)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Separator />
-          <div className="space-y-2">
-            <Label>ألوان التطبيق</Label>
-            <p className="text-xs text-muted-foreground">
-              الألوان التالية ستنعكس على أزرار وثيم التطبيق بالكامل بعد الحفظ.
-            </p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="themePrimaryColor">اللون الأساسي (Primary)</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="themePrimaryColor"
-                  type="color"
-                  value={settings.themePrimaryColor}
-                  onChange={(e) => setSettings((prev) => ({ ...prev, themePrimaryColor: e.target.value }))}
-                  className="h-11 w-16 cursor-pointer p-1"
-                />
-                <Input
-                  value={settings.themePrimaryColor}
-                  onChange={(e) => setSettings((prev) => ({ ...prev, themePrimaryColor: e.target.value }))}
-                  placeholder="#d95f1f"
-                />
+        <CardContent className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
+            <div className="rounded-xl border border-slate-200 p-4">
+              <div className="mb-4">
+                <h3 className="font-semibold text-slate-900">خيارات العرض العامة</h3>
+                <p className="text-sm text-slate-500">عدد المنتجات والعملة الأساسية في المتجر.</p>
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="productsPerPage">عدد المنتجات في الصفحة</Label>
+                  <Select
+                    value={String(settings.productsPerPage)}
+                    onValueChange={(value) => setSettings((prev) => ({ ...prev, productsPerPage: Number(value) }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="8">8 منتجات</SelectItem>
+                      <SelectItem value="12">12 منتج</SelectItem>
+                      <SelectItem value="16">16 منتج</SelectItem>
+                      <SelectItem value="24">24 منتج</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="currency">العملة</Label>
+                  <Select
+                    value={settings.currency}
+                    onValueChange={(value: StoreSettings['currency']) => setSettings((prev) => ({ ...prev, currency: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="iqd">دينار عراقي (د.ع)</SelectItem>
+                      <SelectItem value="usd">دولار أمريكي ($)</SelectItem>
+                      <SelectItem value="eur">يورو (€)</SelectItem>
+                      <SelectItem value="sar">ريال سعودي (ر.س)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="themeAccentColor">لون التمييز (Accent)</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="themeAccentColor"
-                  type="color"
-                  value={settings.themeAccentColor}
-                  onChange={(e) => setSettings((prev) => ({ ...prev, themeAccentColor: e.target.value }))}
-                  className="h-11 w-16 cursor-pointer p-1"
-                />
-                <Input
-                  value={settings.themeAccentColor}
-                  onChange={(e) => setSettings((prev) => ({ ...prev, themeAccentColor: e.target.value }))}
-                  placeholder="#d95f1f"
-                />
+
+            <div className="rounded-xl border border-slate-200 p-4">
+              <div className="mb-4">
+                <h3 className="font-semibold text-slate-900">ألوان التطبيق</h3>
+                <p className="text-sm text-slate-500">الألوان التالية ستنعكس على الأزرار وثيم التطبيق بالكامل بعد الحفظ.</p>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="themeBackgroundColor">لون الخلفية (Background)</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="themeBackgroundColor"
-                  type="color"
-                  value={settings.themeBackgroundColor}
-                  onChange={(e) => setSettings((prev) => ({ ...prev, themeBackgroundColor: e.target.value }))}
-                  className="h-11 w-16 cursor-pointer p-1"
-                />
-                <Input
-                  value={settings.themeBackgroundColor}
-                  onChange={(e) => setSettings((prev) => ({ ...prev, themeBackgroundColor: e.target.value }))}
-                  placeholder="#ffffff"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="themeForegroundColor">لون النص الأساسي (Foreground)</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="themeForegroundColor"
-                  type="color"
-                  value={settings.themeForegroundColor}
-                  onChange={(e) => setSettings((prev) => ({ ...prev, themeForegroundColor: e.target.value }))}
-                  className="h-11 w-16 cursor-pointer p-1"
-                />
-                <Input
-                  value={settings.themeForegroundColor}
-                  onChange={(e) => setSettings((prev) => ({ ...prev, themeForegroundColor: e.target.value }))}
-                  placeholder="#1a1a1a"
-                />
+              <div className="grid gap-4 md:grid-cols-2">
+                {DISPLAY_COLOR_FIELDS.map((field) => (
+                  <div key={field.id} className="space-y-2">
+                    <Label htmlFor={field.id}>{field.label}</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id={field.id}
+                        type="color"
+                        value={String(settings[field.key] ?? '')}
+                        onChange={(e) => setSettings((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                        className="h-11 w-16 cursor-pointer p-1"
+                      />
+                      <Input
+                        value={String(settings[field.key] ?? '')}
+                        onChange={(e) => setSettings((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                        placeholder={field.placeholder}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
