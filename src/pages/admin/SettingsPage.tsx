@@ -474,7 +474,7 @@ export function SettingsPage() {
             <p className="text-sm font-semibold text-slate-700">التنقل بين أقسام الإعدادات</p>
             <p className="text-xs text-slate-500">تبويبات منفصلة لكل جزء</p>
           </div>
-          <TabsList className="grid h-auto w-full grid-cols-2 gap-2 bg-transparent p-0 lg:grid-cols-6">
+          <TabsList className="grid h-auto w-full grid-cols-1 gap-2 bg-transparent p-0 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <TabsTrigger value="store" className="justify-start">معلومات المتجر</TabsTrigger>
             <TabsTrigger value="cloudinary" className="justify-start">Cloudinary</TabsTrigger>
             <TabsTrigger value="database" className="justify-start">قاعدة البيانات</TabsTrigger>

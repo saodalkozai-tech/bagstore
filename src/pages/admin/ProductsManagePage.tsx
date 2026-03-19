@@ -61,8 +61,8 @@ export function ProductsManagePage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-slate-200 bg-white px-5 py-5 shadow-sm">
+    <div className="space-y-5 sm:space-y-6">
+      <div className="rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-xl font-bold text-slate-900">إدارة المنتجات</h2>
@@ -75,13 +75,13 @@ export function ProductsManagePage() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-3">
         <Card className="border-slate-200 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-slate-500">إجمالي المنتجات</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-slate-900">{products.length}</p>
+            <p className="text-2xl font-bold text-slate-900 sm:text-3xl">{products.length}</p>
           </CardContent>
         </Card>
         <Card className="border-emerald-200 bg-emerald-50/40 shadow-sm">
@@ -90,7 +90,7 @@ export function ProductsManagePage() {
             <PackageCheck className="h-5 w-5 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-emerald-600">{inStockCount}</p>
+            <p className="text-2xl font-bold text-emerald-600 sm:text-3xl">{inStockCount}</p>
           </CardContent>
         </Card>
         <Card className="border-rose-200 bg-rose-50/40 shadow-sm">
@@ -99,7 +99,7 @@ export function ProductsManagePage() {
             <PackageX className="h-5 w-5 text-rose-600" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold text-rose-600">{outOfStockCount}</p>
+            <p className="text-2xl font-bold text-rose-600 sm:text-3xl">{outOfStockCount}</p>
           </CardContent>
         </Card>
       </div>
@@ -109,7 +109,7 @@ export function ProductsManagePage() {
           <p className="text-sm font-semibold text-slate-700">البحث والتصفية</p>
           <p className="text-xs text-slate-500">عدد النتائج: {filteredProducts.length}</p>
         </div>
-        <div className="relative max-w-md">
+        <div className="relative w-full max-w-md">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="البحث باسم المنتج أو الفئة..."
@@ -125,16 +125,16 @@ export function ProductsManagePage() {
         {filteredProducts.length > 0 ? (
           filteredProducts.map((product) => (
             <Card key={product.id} className="border-slate-200 shadow-sm">
-              <CardContent className="p-4 space-y-3">
+              <CardContent className="space-y-3 p-3.5">
                 <div className="flex items-start gap-3">
                   <img
                     src={product.images[0]}
                     alt={product.name}
-                    className="w-16 h-16 object-cover rounded"
+                    className="h-16 w-16 rounded object-cover"
                   />
                   <div className="flex-1">
-                    <p className="font-semibold">{product.name}</p>
-                    <p className="text-sm text-muted-foreground">{product.category}</p>
+                    <p className="line-clamp-1 font-semibold">{product.name}</p>
+                    <p className="line-clamp-1 text-sm text-muted-foreground">{product.category}</p>
                     <div className="mt-1">
                       {product.salePrice ? (
                         <div className="flex items-center gap-2">
@@ -155,7 +155,7 @@ export function ProductsManagePage() {
                     <Badge variant="destructive">نفذ</Badge>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <Button
                     size="sm"
                     variant="outline"
@@ -195,7 +195,7 @@ export function ProductsManagePage() {
         )}
       </div>
 
-      <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:block">
+      <div className="hidden overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm md:block">
         <Table>
           <TableHeader>
             <TableRow>

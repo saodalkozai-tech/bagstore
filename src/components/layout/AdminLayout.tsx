@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -18,7 +18,9 @@ import {
   RefreshCw,
   PackageCheck,
   PackageX,
-  CalendarDays
+  CalendarDays,
+  Minimize2,
+  Maximize2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getCurrentUser, getProducts, logout } from '@/lib/storage';
@@ -112,6 +114,13 @@ export function AdminLayout() {
 
     return items;
   }, [availableProducts, lowStockProducts, products.length, unavailableProducts]);
+  const [compactMode, setCompactMode] = useState(() => {
+    try {
+      return localStorage.getItem('bagstore_admin_compact_mode') === '1';
+    } catch {
+      return false;
+    }
+  });
 
   const handleLogout = () => {
     logout();
@@ -139,11 +148,22 @@ export function AdminLayout() {
       toast.error('فشل تفريغ الكاش. حاول مرة أخرى.');
     }
   };
+  const toggleCompactMode = () => {
+    setCompactMode((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('bagstore_admin_compact_mode', next ? '1' : '0');
+      } catch {
+        // no-op when storage is unavailable
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-slate-100/70">
-      <div className="mx-auto grid max-w-[1500px] gap-4 p-3 md:grid-cols-[280px_1fr] md:gap-6 md:p-6">
-        <aside className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm md:sticky md:top-20 md:h-fit">
+      <div className={cn('mx-auto grid max-w-[1500px] p-3 lg:grid-cols-[280px_1fr] lg:p-6', compactMode ? 'gap-3 lg:gap-4' : 'gap-4 lg:gap-6')}>
+        <aside className="hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm lg:sticky lg:top-20 lg:block lg:h-fit">
           <div className="rounded-xl bg-gradient-to-l from-primary to-amber-500 p-4 text-white shadow-md">
             <div className="mb-3 flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20">
@@ -181,14 +201,58 @@ export function AdminLayout() {
           </div>
         </aside>
 
-        <main className="space-y-4">
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm md:p-6">
+        <main className={cn(compactMode ? 'space-y-3' : 'space-y-4')}>
+          <div className={cn('space-y-3 rounded-2xl border border-slate-200/80 bg-white shadow-sm lg:hidden', compactMode ? 'p-3' : 'p-4')}>
+            <div className="flex items-center gap-3 rounded-xl bg-gradient-to-l from-primary to-amber-500 p-3 text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
+                <User className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold">{user?.name}</p>
+                <p className="text-xs opacity-90">{user ? ROLE_LABELS[user.role] : ''}</p>
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                <p className="flex items-center gap-1.5">
+                  <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                  {todayLabel}
+                </p>
+                <p className="mt-1">إجمالي المنتجات: {products.length}</p>
+              </div>
+              <div className="grid gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={toggleCompactMode}>
+                  {compactMode ? <Maximize2 className="ml-2 h-4 w-4" /> : <Minimize2 className="ml-2 h-4 w-4" />}
+                  {compactMode ? 'وضع عادي' : 'وضع مضغوط'}
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={handleClearCache}>
+                  <RefreshCw className="ml-2 h-4 w-4" />
+                  تفريغ الكاش
+                </Button>
+                <Button
+                  onClick={handleLogout}
+                  variant="outline"
+                  size="sm"
+                  className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                >
+                  <LogOut className="ml-2 h-4 w-4" />
+                  تسجيل الخروج
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className={cn('rounded-2xl border border-slate-200/80 bg-white shadow-sm', compactMode ? 'p-3 md:p-4' : 'p-4 md:p-6')}>
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-slate-900">{pageTitle}</h1>
                 <p className="text-sm text-slate-500">تنظيم وإدارة المتجر من مكان واحد</p>
               </div>
               <div className="flex w-full flex-wrap items-center justify-start gap-2 md:w-auto md:justify-end">
+                <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={toggleCompactMode}>
+                  {compactMode ? <Maximize2 className="ml-2 h-4 w-4" /> : <Minimize2 className="ml-2 h-4 w-4" />}
+                  {compactMode ? 'وضع عادي' : 'وضع مضغوط'}
+                </Button>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button type="button" variant="outline" className="relative w-full sm:w-auto">
@@ -239,12 +303,12 @@ export function AdminLayout() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm md:p-4">
+          <div className={cn('rounded-2xl border border-slate-200/80 bg-white shadow-sm', compactMode ? 'p-2.5 md:p-3' : 'p-3 md:p-4')}>
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-semibold text-slate-700">أزرار التنقل السريع</p>
               <p className="text-xs text-slate-500">انتقال مباشر لأقسام لوحة التحكم</p>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="grid gap-2 sm:flex sm:overflow-x-auto sm:pb-1">
               {visibleMenuItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = isPathActive(item.path);
@@ -253,7 +317,7 @@ export function AdminLayout() {
                     key={`quick-${item.path}`}
                     to={item.path}
                     className={cn(
-                      'flex min-w-[180px] items-center justify-between rounded-lg border px-4 py-3 transition-all',
+                      'flex items-center justify-between rounded-lg border px-4 py-3 transition-all sm:min-w-[180px]',
                       isActive
                         ? 'border-primary bg-primary/10 text-primary'
                         : 'border-slate-200 text-slate-700 hover:bg-slate-50'
@@ -270,7 +334,7 @@ export function AdminLayout() {
             </div>
             <div className="mt-3 border-t border-slate-200 pt-3">
               <p className="mb-2 text-xs font-semibold text-slate-500">اختصارات الإحصاءات</p>
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="grid gap-2 sm:flex sm:overflow-x-auto sm:pb-1">
                 {dashboardQuickLinks.map((item) => {
                   const Icon = item.icon;
                   const isActive = isDashboardAnchorActive(item.hash);
@@ -283,7 +347,7 @@ export function AdminLayout() {
                       key={`dash-${item.path}`}
                       to={item.path}
                       className={cn(
-                        'flex min-w-[180px] items-center justify-between rounded-lg border px-3 py-2.5 transition-all',
+                        'flex items-center justify-between rounded-lg border px-3 py-2.5 transition-all sm:min-w-[180px]',
                         isActive
                           ? 'border-primary bg-primary/10 text-primary'
                           : 'border-slate-200 text-slate-700 hover:bg-slate-50'
@@ -301,7 +365,7 @@ export function AdminLayout() {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className={cn('grid sm:grid-cols-2 xl:grid-cols-4', compactMode ? 'gap-2.5' : 'gap-3')}>
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="text-xs text-slate-500">إجمالي المنتجات</p>
               <p className="mt-1 text-2xl font-bold text-slate-900">{products.length}</p>

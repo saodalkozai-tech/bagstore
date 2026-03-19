@@ -226,7 +226,7 @@ export function DashboardPage() {
 
   return (
     <div className="motion-fade-in space-y-6">
-      <div className="motion-fade-up rounded-xl border border-slate-200 bg-white px-5 py-5 shadow-sm">
+      <div className="motion-fade-up rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:px-5 sm:py-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-xl font-bold text-slate-900">نظرة عامة سريعة</h2>
@@ -234,13 +234,15 @@ export function DashboardPage() {
               متابعة المخزون والقيمة المالية والحالة التشغيلية للمتجر.
             </p>
           </div>
-          <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
-            <Link to="/admin/products">فتح إدارة المنتجات</Link>
-          </Button>
-          <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => setIsPrintDesignDialogOpen(true)}>
-            <Printer className="ml-2 h-4 w-4" />
-            تصميم الطباعة
-          </Button>
+          <div className="grid gap-2 sm:flex sm:flex-wrap">
+            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+              <Link to="/admin/products">فتح إدارة المنتجات</Link>
+            </Button>
+            <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={() => setIsPrintDesignDialogOpen(true)}>
+              <Printer className="ml-2 h-4 w-4" />
+              تصميم الطباعة
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -307,7 +309,7 @@ export function DashboardPage() {
           <p className="text-sm font-semibold text-slate-700">تبويبات لوحة التحكم</p>
           <p className="text-xs text-slate-500">عرض كل قسم بشكل منفصل ومنظم</p>
         </div>
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 bg-transparent p-0 md:grid-cols-4">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 bg-transparent p-0 sm:grid-cols-2 md:grid-cols-4">
           <TabsTrigger value="inventory" className="justify-start">المخزون</TabsTrigger>
           <TabsTrigger value="financial" className="justify-start">التحليل المالي</TabsTrigger>
           <TabsTrigger value="reports" className="justify-start">تقارير الأرباح</TabsTrigger>
@@ -338,7 +340,7 @@ export function DashboardPage() {
               <Package className="w-5 h-5 text-slate-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-slate-900">{stats.totalProducts}</div>
+              <div className="text-2xl font-bold text-slate-900 sm:text-3xl">{stats.totalProducts}</div>
               <p className="mt-1 text-xs text-slate-500">منتج داخل قاعدة البيانات</p>
             </CardContent>
           </Card>
@@ -351,7 +353,7 @@ export function DashboardPage() {
               <PackageCheck className="w-5 h-5 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-green-600">{stats.inStockProducts}</div>
+              <div className="text-2xl font-bold text-green-600 sm:text-3xl">{stats.inStockProducts}</div>
               <p className="mt-1 text-xs text-slate-500">جاهز للبيع الآن</p>
             </CardContent>
           </Card>
@@ -364,7 +366,7 @@ export function DashboardPage() {
               <PackageX className="w-5 h-5 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-red-600">{stats.outOfStockProducts}</div>
+              <div className="text-2xl font-bold text-red-600 sm:text-3xl">{stats.outOfStockProducts}</div>
               <p className="mt-1 text-xs text-slate-500">بحاجة لإعادة تخزين</p>
             </CardContent>
           </Card>
@@ -377,7 +379,7 @@ export function DashboardPage() {
               <AlertCircle className="w-5 h-5 text-amber-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-amber-600">{stats.lowStockProducts}</div>
+              <div className="text-2xl font-bold text-amber-600 sm:text-3xl">{stats.lowStockProducts}</div>
               <p className="mt-1 text-xs text-slate-500">منتجات أقل من 5 قطع</p>
             </CardContent>
           </Card>
@@ -390,7 +392,7 @@ export function DashboardPage() {
               <Eye className="w-5 h-5 text-sky-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-sky-600">{settings.visitorCount}</div>
+              <div className="text-2xl font-bold text-sky-600 sm:text-3xl">{settings.visitorCount}</div>
               <p className="mt-1 text-xs text-slate-500">تُحتسب مرة واحدة لكل جلسة متصفح</p>
             </CardContent>
           </Card>
@@ -403,7 +405,7 @@ export function DashboardPage() {
               <Users className="w-5 h-5 text-indigo-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-indigo-600">{settings.visitorUniqueCount}</div>
+              <div className="text-2xl font-bold text-indigo-600 sm:text-3xl">{settings.visitorUniqueCount}</div>
               <p className="mt-1 text-xs text-slate-500">تقريبي حسب كل متصفح/جهاز</p>
             </CardContent>
           </Card>
@@ -416,7 +418,7 @@ export function DashboardPage() {
               <CalendarDays className="w-5 h-5 text-teal-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-teal-600">{todayVisitors}</div>
+              <div className="text-2xl font-bold text-teal-600 sm:text-3xl">{todayVisitors}</div>
               <p className="mt-1 text-xs text-slate-500">إجمالي جلسات اليوم</p>
             </CardContent>
           </Card>
@@ -429,7 +431,7 @@ export function DashboardPage() {
               <CalendarDays className="w-5 h-5 text-cyan-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-cyan-600">{monthVisitors}</div>
+              <div className="text-2xl font-bold text-cyan-600 sm:text-3xl">{monthVisitors}</div>
               <p className="mt-1 text-xs text-slate-500">إجمالي جلسات الشهر الحالي</p>
             </CardContent>
           </Card>
@@ -527,8 +529,8 @@ export function DashboardPage() {
             ) : (
               <div className="space-y-2">
                 {topRevenueCategories.map(([category, revenue]) => (
-                  <div key={category} className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm">
-                    <span className="font-medium text-slate-700">{category}</span>
+                  <div key={category} className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm">
+                    <span className="truncate font-medium text-slate-700">{category}</span>
                     <span className="font-bold text-primary">{formatPrice(revenue)}</span>
                   </div>
                 ))}
