@@ -441,6 +441,50 @@ function syncCurrentUser(users: StoredUser[]): void {
   sessionStorageSafe?.setItem(STORAGE_KEYS.USER, JSON.stringify(toPublicUser(updatedCurrentUser)));
 }
 
+function normalizeStoredProduct(raw: unknown): Product | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const product = raw as Record<string, unknown>;
+
+  const id = String(product.id || '').trim();
+  const name = String(product.name || '').trim();
+  const category = String(product.category || '').trim();
+  const color = String(product.color || '').trim();
+  const price = Number(product.price);
+  const stock = Number(product.stock);
+  const images = Array.isArray(product.images)
+    ? product.images.map((image) => String(image || '').trim()).filter(Boolean)
+    : [];
+
+  if (!id || !name || !Number.isFinite(price) || price < 0 || !Number.isFinite(stock) || stock < 0 || images.length === 0) {
+    return null;
+  }
+
+  const salePriceRaw = Number(product.salePrice);
+  const salePrice =
+    Number.isFinite(salePriceRaw) && salePriceRaw >= 0
+      ? salePriceRaw
+      : undefined;
+  const deliveryInfo = String(product.deliveryInfo || '').trim() || undefined;
+  const createdAt = String(product.createdAt || '').trim() || new Date().toISOString();
+  const updatedAt = String(product.updatedAt || '').trim() || createdAt;
+
+  return {
+    id,
+    name,
+    price,
+    salePrice,
+    images,
+    category,
+    color,
+    deliveryInfo,
+    stock: Math.floor(stock),
+    inStock: typeof product.inStock === 'boolean' ? product.inStock : stock > 0,
+    featured: Boolean(product.featured),
+    createdAt,
+    updatedAt
+  };
+}
+
 async function syncProductsToCloud(products: Product[]): Promise<void> {
   const settings = getStoreSettings();
   const supabase = getSupabaseClient(settings);
@@ -475,7 +519,7 @@ async function syncProductsToCloud(products: Product[]): Promise<void> {
 
   const payload = products.map((product) => ({
     id: product.id,
-    data: product,
+    data: normalizeStoredProduct(product) || product,
     updated_at: new Date().toISOString()
   }));
 
@@ -698,9 +742,16 @@ export const initializeStorage = async (): Promise<void> => {
       if (import.meta.env.DEV) console.warn('Supabase logs fetch failed:', logsError);
     }
 
-    const cloudProducts = (productRows || [])
-      .map((row) => row.data as Product)
-      .filter((product) => product && typeof product.id === 'string');
+    const rawCloudProducts = (productRows || []).map((row) => row.data);
+    const cloudProducts = rawCloudProducts
+      .map((rawProduct) => normalizeStoredProduct(rawProduct))
+      .filter((product): product is Product => Boolean(product));
+    const cloudProductsWereSanitized =
+      rawCloudProducts.length !== cloudProducts.length ||
+      rawCloudProducts.some((rawProduct) => {
+        const normalized = normalizeStoredProduct(rawProduct);
+        return !normalized || JSON.stringify(rawProduct) !== JSON.stringify(normalized);
+      });
     const cloudUsers = (usersRows || [])
       .map((row) => row.data as StoredUser)
       .filter((user) => user && typeof user.id === 'string' && typeof user.password === 'string');
@@ -734,6 +785,7 @@ export const initializeStorage = async (): Promise<void> => {
     // If cloud is empty, publish current local state as initial seed (non-blocking).
     try {
       if (cloudProducts.length === 0) await syncProductsToCloud(getProducts());
+      if (cloudProducts.length > 0 && cloudProductsWereSanitized) await syncProductsToCloud(cloudProducts);
       if (cloudUsers.length === 0) await syncUsersToCloud(getStoredUsers());
       if (!cloudSettings) await syncSettingsToCloud(getStoreSettings());
       if (cloudLogs.length === 0) await syncUserLogsToCloud(getUserLogsInternal());
@@ -747,7 +799,7 @@ export const initializeStorage = async (): Promise<void> => {
 
 // Products Storage
 export const getProducts = (): Product[] => {
-  const products = safeParse<Product[] | null>(
+  const products = safeParse<unknown[] | null>(
     localStorage.getItem(STORAGE_KEYS.PRODUCTS),
     null
   );
@@ -757,7 +809,16 @@ export const getProducts = (): Product[] => {
     return MOCK_PRODUCTS;
   }
 
-  return products;
+  const normalizedProducts = products
+    .map((product) => normalizeStoredProduct(product))
+    .filter((product): product is Product => Boolean(product));
+
+  if (normalizedProducts.length !== products.length || JSON.stringify(normalizedProducts) !== JSON.stringify(products)) {
+    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(normalizedProducts));
+    queueCloudSync(() => syncProductsToCloud(normalizedProducts));
+  }
+
+  return normalizedProducts;
 };
 
 export const saveProducts = (products: Product[]): void => {
@@ -767,7 +828,13 @@ export const saveProducts = (products: Product[]): void => {
 
 export const addProduct = (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Product => {
   const products = getProducts();
-  const newProduct: Product = {
+  const normalizedNewProduct = normalizeStoredProduct({
+    ...product,
+    id: Date.now().toString(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  });
+  const newProduct: Product = normalizedNewProduct || {
     ...product,
     id: Date.now().toString(),
     createdAt: new Date().toISOString(),
@@ -783,11 +850,14 @@ export const updateProduct = (id: string, updates: Partial<Product>): Product | 
   const index = products.findIndex(p => p.id === id);
   if (index === -1) return null;
   
-  products[index] = {
+  const nextProduct = normalizeStoredProduct({
     ...products[index],
     ...updates,
     updatedAt: new Date().toISOString()
-  };
+  });
+  if (!nextProduct) return null;
+
+  products[index] = nextProduct;
   saveProducts(products);
   return products[index];
 };

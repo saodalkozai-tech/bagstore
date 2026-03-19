@@ -1,19 +1,11 @@
 export interface Product {
   id: string;
   name: string;
-  nameEn?: string;
-  description: string;
   price: number;
   salePrice?: number;
   images: string[];
   category: string;
   color: string;
-  size: string;
-  material: string;
-  weight?: string;
-  brand?: string;
-  countryOfOrigin?: string;
-  warranty?: string;
   deliveryInfo?: string;
   stock: number;
   inStock: boolean;

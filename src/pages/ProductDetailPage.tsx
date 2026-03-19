@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowRight, ShoppingCart, Check, Package, Truck, Shield, Tag } from 'lucide-react';
+import { ArrowRight, ShoppingCart, Check, Package, Truck, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
@@ -126,12 +126,6 @@ export function ProductDetailPage() {
             )}
           </div>
 
-          {/* Description */}
-          <div className="mb-6 md:mb-8">
-            <h2 className="font-bold text-xl mb-3">الوصف</h2>
-            <p className="text-muted-foreground leading-relaxed">{product.description}</p>
-          </div>
-
           {/* Specifications */}
           <div className="mb-6 md:mb-8">
             <h2 className="font-bold text-xl mb-3">المواصفات</h2>
@@ -141,43 +135,15 @@ export function ProductDetailPage() {
                 <p className="font-medium">{product.color}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-muted-foreground mb-1">الحجم</p>
-                <p className="font-medium">{product.size}</p>
+                <p className="text-sm text-muted-foreground mb-1">الفئة</p>
+                <p className="font-medium">{product.category}</p>
               </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-muted-foreground mb-1">المادة</p>
-                <p className="font-medium">{product.material}</p>
-              </div>
-              {product.weight && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">الوزن</p>
-                  <p className="font-medium">{product.weight}</p>
-                </div>
-              )}
-              {product.brand && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">العلامة التجارية</p>
-                  <p className="font-medium">{product.brand}</p>
-                </div>
-              )}
-              {product.countryOfOrigin && (
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">بلد المنشأ</p>
-                  <p className="font-medium">{product.countryOfOrigin}</p>
-                </div>
-              )}
             </div>
           </div>
 
           {/* Additional Info */}
-          {(product.warranty || product.deliveryInfo) && (
+          {product.deliveryInfo && (
             <div className="mb-6 space-y-3 md:mb-8">
-              {product.warranty && (
-                <div className="flex items-center gap-3 text-sm">
-                  <Shield className="w-5 h-5 text-primary" />
-                  <span>الضمان: {product.warranty}</span>
-                </div>
-              )}
               {product.deliveryInfo && (
                 <div className="flex items-center gap-3 text-sm">
                   <Truck className="w-5 h-5 text-primary" />

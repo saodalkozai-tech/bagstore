@@ -19,19 +19,11 @@ import { toast } from 'sonner';
 
 const productSchema = z.object({
   name: z.string().min(3, 'الاسم يجب أن يكون 3 أحرف على الأقل'),
-  nameEn: z.string().optional(),
-  description: z.string().min(10, 'الوصف يجب أن يكون 10 أحرف على الأقل'),
   price: z.number().min(1, 'السعر يجب أن يكون أكبر من 0'),
   salePrice: z.number().optional(),
   images: z.string().min(1, 'يجب إضافة صورة واحدة على الأقل'),
   category: z.string().min(1, 'يجب اختيار الفئة'),
   color: z.string().min(1, 'يجب اختيار اللون'),
-  size: z.string().min(1, 'يجب إدخال الحجم'),
-  material: z.string().min(1, 'يجب إدخال المادة'),
-  weight: z.string().optional(),
-  brand: z.string().optional(),
-  countryOfOrigin: z.string().optional(),
-  warranty: z.string().optional(),
   deliveryInfo: z.string().optional(),
   stock: z.number().min(0, 'الكمية لا يمكن أن تكون سالبة'),
   featured: z.boolean()
@@ -52,19 +44,11 @@ function getDefaultValues(product?: Product | null): ProductFormData {
   if (product) {
     return {
       name: product.name,
-      nameEn: product.nameEn,
-      description: product.description,
       price: product.price,
       salePrice: product.salePrice,
       images: product.images.join('\n'),
       category: product.category,
       color: product.color,
-      size: product.size,
-      material: product.material,
-      weight: product.weight,
-      brand: product.brand,
-      countryOfOrigin: product.countryOfOrigin,
-      warranty: product.warranty,
       deliveryInfo: product.deliveryInfo,
       stock: product.stock,
       featured: product.featured
@@ -73,19 +57,11 @@ function getDefaultValues(product?: Product | null): ProductFormData {
 
   return {
     name: '',
-    nameEn: '',
-    description: '',
     price: 0,
     salePrice: undefined,
     images: '',
     category: '',
     color: '',
-    size: '',
-    material: '',
-    weight: '',
-    brand: '',
-    countryOfOrigin: '',
-    warranty: '',
     deliveryInfo: '',
     stock: 0,
     featured: false
@@ -227,19 +203,11 @@ export function ProductFormDialog({ open, onOpenChange, product, onSuccess }: Pr
 
     const productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'> = {
       name: data.name.trim(),
-      nameEn: normalizeOptionalString(data.nameEn),
-      description: data.description.trim(),
       price: data.price,
       salePrice: data.salePrice ?? undefined,
       images,
       category: data.category.trim(),
       color: data.color.trim(),
-      size: data.size.trim(),
-      material: data.material.trim(),
-      weight: normalizeOptionalString(data.weight),
-      brand: normalizeOptionalString(data.brand),
-      countryOfOrigin: normalizeOptionalString(data.countryOfOrigin),
-      warranty: normalizeOptionalString(data.warranty),
       deliveryInfo: normalizeOptionalString(data.deliveryInfo),
       stock: data.stock,
       inStock: data.stock > 0,
@@ -279,17 +247,6 @@ export function ProductFormDialog({ open, onOpenChange, product, onSuccess }: Pr
               <Label htmlFor="name">اسم المنتج *</Label>
               <Input id="name" {...register('name')} />
               {errors.name && <p className="text-sm text-red-600">{errors.name.message}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="nameEn">اسم المنتج (بالإنجليزية)</Label>
-              <Input id="nameEn" {...register('nameEn')} dir="ltr" />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">الوصف *</Label>
-              <Textarea id="description" {...register('description')} rows={4} />
-              {errors.description && <p className="text-sm text-red-600">{errors.description.message}</p>}
             </div>
 
             <div className="grid md:grid-cols-2 gap-4">
@@ -368,42 +325,7 @@ export function ProductFormDialog({ open, onOpenChange, product, onSuccess }: Pr
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-base font-semibold sm:text-lg">المواصفات</h3>
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="size">الحجم *</Label>
-                <Input id="size" {...register('size')} placeholder="30x25x15 سم" />
-                {errors.size && <p className="text-sm text-red-600">{errors.size.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="material">المادة *</Label>
-                <Input id="material" {...register('material')} placeholder="جلد طبيعي" />
-                {errors.material && <p className="text-sm text-red-600">{errors.material.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="weight">الوزن</Label>
-                <Input id="weight" {...register('weight')} placeholder="0.8 كجم" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="brand">العلامة التجارية</Label>
-                <Input id="brand" {...register('brand')} />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="countryOfOrigin">بلد المنشأ</Label>
-                <Input id="countryOfOrigin" {...register('countryOfOrigin')} />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="warranty">الضمان</Label>
-                <Input id="warranty" {...register('warranty')} placeholder="سنة واحدة" />
-              </div>
-            </div>
-
+            <h3 className="text-base font-semibold sm:text-lg">معلومات إضافية</h3>
             <div className="space-y-2">
               <Label htmlFor="deliveryInfo">معلومات التوصيل</Label>
               <Input id="deliveryInfo" {...register('deliveryInfo')} placeholder="التوصيل خلال 3-5 أيام" />
