@@ -1,3 +1,6 @@
+export type UserRole = 'admin' | 'editor' | 'viewer';
+export type ExternalDbProvider = 'supabase' | 'firebase' | 'mongodb' | 'custom';
+
 export interface Product {
   id: string;
   name: string;
@@ -24,7 +27,7 @@ export interface User {
   name: string;
   username: string;
   email: string;
-  role: 'admin' | 'editor' | 'viewer';
+  role: UserRole;
   avatar?: string;
   createdAt: string;
 }
@@ -91,7 +94,7 @@ export interface StoreSettings {
   cloudinaryUploadPreset: string;
   cloudinaryApiKey: string;
   externalDbEnabled: boolean;
-  externalDbProvider: 'supabase' | 'firebase' | 'mongodb' | 'custom';
+  externalDbProvider: ExternalDbProvider;
   externalDbUrl: string;
   externalDbName: string;
   externalDbApiKey: string;

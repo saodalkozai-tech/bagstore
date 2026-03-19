@@ -37,14 +37,15 @@ npm run dev
 3. ضع القيم التالية:
 
 ```bash
-VITE_CLOUDINARY_CLOUD_NAME=dtiehdhmf
-VITE_CLOUDINARY_API_KEY=823494895349582
-VITE_CLOUDINARY_UPLOAD_PRESET=hr_accessories
+VITE_CLOUDINARY_CLOUD_NAME=your-cloud-name
+VITE_CLOUDINARY_API_KEY=your-api-key
+VITE_CLOUDINARY_UPLOAD_PRESET=your-upload-preset
 ```
 
 ملاحظة: `VITE_CLOUDINARY_API_KEY` مضاف للتوثيق فقط، والرفع الحالي يعتمد على `cloud_name + unsigned upload preset`.
 
 بعد ذلك، زر "رفع إلى Cloudinary" في نموذج المنتج سيرفع الصورة ويضيف رابطها تلقائياً.
+إذا كانت الإعدادات ناقصة أو فشل الرفع، سيظهر خطأ واضح ولن يتم حفظ رابط placeholder وهمي.
 ويمكنك تعديل معلومات Cloudinary لاحقاً من لوحة التحكم عبر صفحة: `الإعدادات > إعدادات Cloudinary`.
 
 ## ربط قاعدة بيانات سحابية (Supabase)
@@ -57,12 +58,6 @@ VITE_CLOUDINARY_UPLOAD_PRESET=hr_accessories
 
 ```sql
 create table if not exists bagstore_products (
-  id text primary key,
-  data jsonb not null,
-  updated_at timestamptz default now()
-);
-
-create table if not exists bagstore_users (
   id text primary key,
   data jsonb not null,
   updated_at timestamptz default now()
@@ -102,62 +97,69 @@ where key = 'default';
 
 2. من إعدادات المشروع في Supabase انسخ:
    - Project URL
-   - `anon` public API key
+- `anon` public API key
 3. أدخل القيم في لوحة التحكم ثم فعّل خيار القاعدة السحابية مع اختيار `Supabase`.
 
 ملاحظات:
-- عند التفعيل، التطبيق يحمّل البيانات من Supabase عند التشغيل ثم يزامن أي تعديل تلقائياً.
+- عند التفعيل، التطبيق يحمّل البيانات من Supabase عند التشغيل ثم يزامن المنتجات والإعدادات وسجل النشاط تلقائياً.
+- مستخدمو لوحة التحكم المحليون لا تتم مزامنتهم إلى Supabase.
 - إذا فشل الاتصال، التطبيق يرجع للتخزين المحلي بدون توقف.
 
 ### سياسات الأمان (RLS) الجاهزة
 
-بعد إنشاء الجداول، نفّذ SQL التالي في Supabase:
+للتشغيل السريع المحلي يمكنك استخدام سياسات مؤقتة محدودة حسب حاجتك، لكن للإنتاج استخدم القالب الموجود في:
+
+- `scripts/supabase-rls-production.sql`
+
+تنبيه مهم:
+- لا تفعّل سياسات كتابة مفتوحة لـ `anon` في الإنتاج.
+- يفضّل أن تمر عمليات الكتابة الإنتاجية عبر Backend آمن أو Edge Functions.
+- التطبيق الحالي لا يزامن جدول مستخدمي الإدارة إلى Supabase.
+
+مثال تشغيل سريع ومحدود للقراءة العامة وكتابة المستخدمين الموثقين:
 
 ```sql
-alter table bagstore_products enable row level security;
-alter table bagstore_users enable row level security;
 alter table bagstore_settings enable row level security;
+alter table bagstore_products enable row level security;
 alter table bagstore_user_logs enable row level security;
 
-drop policy if exists "bagstore_products_anon_all" on bagstore_products;
-drop policy if exists "bagstore_users_anon_all" on bagstore_users;
-drop policy if exists "bagstore_settings_anon_all" on bagstore_settings;
-drop policy if exists "bagstore_user_logs_anon_all" on bagstore_user_logs;
+create policy "bagstore_products_read"
+on bagstore_products
+for select
+to anon, authenticated
+using (true);
 
-create policy "bagstore_products_anon_all"
+create policy "bagstore_settings_read"
+on bagstore_settings
+for select
+to anon, authenticated
+using (true);
+
+create policy "bagstore_products_write_auth"
 on bagstore_products
 for all
-to anon
+to authenticated
 using (true)
 with check (true);
 
-create policy "bagstore_users_anon_all"
-on bagstore_users
-for all
-to anon
-using (true)
-with check (true);
-
-create policy "bagstore_settings_anon_all"
+create policy "bagstore_settings_write_auth"
 on bagstore_settings
 for all
-to anon
+to authenticated
 using (true)
 with check (true);
 
-create policy "bagstore_user_logs_anon_all"
+create policy "bagstore_user_logs_write_auth"
 on bagstore_user_logs
 for all
-to anon
+to authenticated
 using (true)
 with check (true);
 ```
 
 تنبيه أمني:
-- هذه السياسات مناسبة للتشغيل السريع الحالي لأن التطبيق يستخدم `anon key` مباشرة من الواجهة.
-- في بيئة الإنتاج الأفضل نقل عمليات الكتابة إلى Backend آمن (Edge Functions / API Server) واستخدام سياسات أكثر تقييدًا.
-- تم إضافة قالب جاهز لسياسات أكثر تقييدًا في:
-  - `scripts/supabase-rls-production.sql`
+- القالب الإنتاجي الحقيقي موجود في `scripts/supabase-rls-production.sql`.
+- كلما شددت السياسات أكثر، احتجت Backend أو Edge Functions لعمليات الكتابة الحساسة.
 
 ## Firebase Auth + RBAC (حماية متقدمة)
 

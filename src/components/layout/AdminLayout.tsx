@@ -23,11 +23,12 @@ import {
   Maximize2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getCurrentUser, getProducts, logout } from '@/lib/storage';
+import { getCurrentUser, logout } from '@/lib/storage';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { User as UserType } from '@/types';
+import { useProducts } from '@/hooks/use-products';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'لوحة التحكم', path: '/admin', roles: ['admin', 'editor', 'viewer'] as UserType['role'][] },
@@ -53,7 +54,7 @@ export function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const user = getCurrentUser();
-  const products = getProducts();
+  const products = useProducts();
   const visibleMenuItems = menuItems.filter((item) => user && item.roles.includes(user.role));
   const pageTitle = useMemo(() => {
     if (location.pathname === '/admin') return 'لوحة التحكم';
@@ -114,6 +115,7 @@ export function AdminLayout() {
 
     return items;
   }, [availableProducts, lowStockProducts, products.length, unavailableProducts]);
+  const criticalNotificationsCount = notifications.filter((item) => item.tone !== 'info').length;
   const [compactMode, setCompactMode] = useState(() => {
     try {
       return localStorage.getItem('bagstore_admin_compact_mode') === '1';
@@ -258,7 +260,10 @@ export function AdminLayout() {
                     <Button type="button" variant="outline" className="relative w-full sm:w-auto">
                       <Bell className="ml-2 h-4 w-4" />
                       الإشعارات
-                      <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                      <span className={cn(
+                        'absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white',
+                        criticalNotificationsCount > 0 ? 'bg-rose-500' : 'bg-slate-500'
+                      )}>
                         {notifications.length}
                       </span>
                     </Button>
@@ -294,6 +299,20 @@ export function AdminLayout() {
                     </div>
                   </PopoverContent>
                 </Popover>
+
+                <div className={cn(
+                  'inline-flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm sm:w-fit',
+                  criticalNotificationsCount > 0
+                    ? 'border-amber-200 bg-amber-50 text-amber-700'
+                    : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                )}>
+                  <Bell className="h-4 w-4" />
+                  <span>
+                    {criticalNotificationsCount > 0
+                      ? `${criticalNotificationsCount} تنبيه يحتاج متابعة`
+                      : 'لا توجد تنبيهات حرجة'}
+                  </span>
+                </div>
 
                 <div className="inline-flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 sm:w-fit">
                   <Box className="h-4 w-4 text-primary" />

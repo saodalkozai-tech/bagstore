@@ -9,22 +9,22 @@
 
 ## Phase 2: UI/UX Fixes
 - [x] ProductFormDialog.tsx: Unhide textarea, add image preview thumbnails
-- [ ] LoginPage.tsx: Add demo credentials display section
-- [ ] Test forms: Product add/edit, upload, login
+- [x] LoginPage.tsx: Add demo credentials display section
+- [x] Test forms: Product add/edit, upload, login
 
 ## Phase 3: Polish & Validation
-- [ ] Navbar.tsx/AdminLayout.tsx: Minor tweaks (cart badge, notifications)
-- [ ] Run `npm run lint`
-- [ ] Build test: `npm run build`
-- [ ] Final test: Full admin flow
+- [x] Navbar.tsx/AdminLayout.tsx: Minor tweaks (cart badge, notifications)
+- [x] Run `npm run lint`
+- [x] Build test: `npm run build`
+- [x] Final test: Full admin flow
 
 **Instructions**: Copy `.env.example` → `.env.local`, fill creds, restart dev server.
 
-**Completed**: 8/14 steps (Config + Forms + Login UX + Linting)
+**Completed**: 14/14 steps (All tracked fixes completed)
 
 ## Checklist سريع للنشر والتحديث
 
-- [ ] تشغيل البناء محليًا: `npm run build`
+- [x] تشغيل البناء محليًا: `npm run build`
 - [ ] رفع آخر التعديلات: `git add . && git commit -m "chore: update" && git push origin master`
 - [ ] نشر Firebase يدويًا: `firebase deploy --only hosting`
 - [ ] التأكد من فتح الموقع: `https://hr-accessories.web.app`

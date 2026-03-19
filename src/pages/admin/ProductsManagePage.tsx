@@ -22,14 +22,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { getProducts, deleteProduct } from '@/lib/storage';
+import { deleteProduct } from '@/lib/storage';
 import { formatPrice } from '@/lib/utils';
 import { ProductFormDialog } from '@/components/features/ProductFormDialog';
+import { useProducts } from '@/hooks/use-products';
 import { Product } from '@/types';
 import { toast } from 'sonner';
 
 export function ProductsManagePage() {
-  const [products, setProducts] = useState(getProducts());
+  const products = useProducts();
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
@@ -46,7 +47,6 @@ export function ProductsManagePage() {
     if (!deleteId) return;
     
     if (deleteProduct(deleteId)) {
-      setProducts(getProducts());
       toast.success('تم حذف المنتج بنجاح');
     } else {
       toast.error('فشل حذف المنتج');
@@ -55,7 +55,6 @@ export function ProductsManagePage() {
   };
 
   const handleFormSuccess = () => {
-    setProducts(getProducts());
     setIsFormOpen(false);
     setEditProduct(null);
   };

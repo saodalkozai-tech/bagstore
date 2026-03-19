@@ -4,19 +4,27 @@ import './index.css'
 import { hydrateAuthSession, initializeStorage, syncLocalDataToSupabase } from './lib/storage.ts'
 
 const root = createRoot(document.getElementById("root")!);
+let hasRendered = false;
 
-async function bootstrap() {
-  await hydrateAuthSession();
-  await initializeStorage();
-  try {
-    await syncLocalDataToSupabase();
-  } catch (error) {
-    console.warn('Cloud sync on refresh failed:', error);
-  }
+function renderApp() {
+  if (hasRendered) return;
+  hasRendered = true;
   root.render(<App />);
 }
 
-bootstrap();
+async function bootstrap() {
+  try {
+    await hydrateAuthSession();
+    await initializeStorage();
+    await syncLocalDataToSupabase();
+  } catch (error) {
+    console.error('Application bootstrap failed. Falling back to local mode:', error);
+  } finally {
+    renderApp();
+  }
+}
+
+void bootstrap();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

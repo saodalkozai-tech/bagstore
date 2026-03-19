@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { getLoginLockoutRemainingMs, login } from '@/lib/storage';
+import { getDemoCredentials, getLoginLockoutRemainingMs, login } from '@/lib/storage';
+import { isFirebaseAuthEnabled } from '@/lib/firebase-auth';
 import { useStoreSettings } from '@/hooks/use-store-settings';
 import { toast } from 'sonner';
 
@@ -18,6 +19,8 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const mountedRef = useRef(true);
   const logoSrc = settings.logoUrl.trim() || '/logo.png';
+  const firebaseAuthEnabled = isFirebaseAuthEnabled();
+  const demoCredentials = getDemoCredentials();
 
   useEffect(() => {
     return () => {
@@ -92,11 +95,13 @@ export function LoginPage() {
           <CardContent className="space-y-5 px-0">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username">اسم المستخدم</Label>
+                <Label htmlFor="username">
+                  {firebaseAuthEnabled ? 'البريد الإلكتروني' : 'اسم المستخدم'}
+                </Label>
                 <Input
                   id="username"
                   type="text"
-                  placeholder="admin"
+                  placeholder={firebaseAuthEnabled ? 'admin@example.com' : 'admin'}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
@@ -147,6 +152,35 @@ export function LoginPage() {
                 )}
               </Button>
             </form>
+
+            {!firebaseAuthEnabled && demoCredentials.length > 0 && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-900">حسابات تجريبية محلية</p>
+                <p className="mt-1 text-xs text-slate-600">
+                  هذه الحسابات متاحة فقط عند تعطيل Firebase Auth.
+                </p>
+                <div className="mt-3 space-y-2">
+                  {demoCredentials.map((credential) => (
+                    <button
+                      key={credential.username}
+                      type="button"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-right transition hover:border-primary hover:bg-primary/5"
+                      onClick={() => {
+                        setUsername(credential.username);
+                        setPassword(credential.password);
+                      }}
+                    >
+                      <p className="text-sm font-medium text-slate-800">
+                        {credential.name} ({credential.role})
+                      </p>
+                      <p className="mt-1 text-xs text-slate-600">
+                        {credential.username} / {credential.password}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

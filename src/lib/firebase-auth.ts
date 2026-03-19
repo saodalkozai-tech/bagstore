@@ -6,7 +6,7 @@ import {
   signOut
 } from 'firebase/auth';
 
-type FirebaseSession = {
+export type FirebaseSession = {
   uid: string;
   email: string;
   displayName: string;

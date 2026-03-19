@@ -21,6 +21,7 @@ import {
 } from '@/lib/storage';
 import { isFirebaseAuthEnabled } from '@/lib/firebase-auth';
 import { uploadImageToCloudinary } from '@/lib/cloudinary';
+import { normalizeStoreSettings } from '@/lib/store-settings-utils';
 import { QuickLinkItem, StoreSettings, User } from '@/types';
 import { toast } from 'sonner';
 
@@ -43,18 +44,9 @@ const DEFAULT_NEW_USER: {
   role: 'viewer',
   password: ''
 };
-const DEFAULT_THEME_PRIMARY = '#d95f1f';
-const DEFAULT_THEME_ACCENT = '#d95f1f';
-const DEFAULT_THEME_BACKGROUND = '#ffffff';
-const DEFAULT_THEME_FOREGROUND = '#1a1a1a';
 const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 type SettingsSection = 'store' | 'cloudinary' | 'database' | 'users' | 'display' | 'security';
-
-function normalizeHexColor(value: string, fallback: string): string {
-  const color = value.trim();
-  return /^#[0-9a-fA-F]{6}$/.test(color) ? color : fallback;
-}
 
 export function SettingsPage() {
   const firebaseAuthEnabled = isFirebaseAuthEnabled();
@@ -90,71 +82,37 @@ export function SettingsPage() {
       return;
     }
 
-    if (!settings.cloudinaryCloudName.trim() || !settings.cloudinaryUploadPreset.trim()) {
-      toast.error('يرجى إدخال Cloud Name و Upload Preset لإعدادات Cloudinary');
-      return;
-    }
-    if (!settings.externalDbUrl.trim()) {
+    if (settings.externalDbEnabled && !settings.externalDbUrl.trim()) {
       toast.error('يرجى إدخال رابط قاعدة البيانات السحابية (Supabase URL)');
       return;
     }
-    if (!settings.externalDbApiKey.trim()) {
+    if (settings.externalDbEnabled && !settings.externalDbApiKey.trim()) {
       toast.error('يرجى إدخال مفتاح قاعدة البيانات السحابية (Supabase Anon Key)');
       return;
     }
-    if (settings.externalDbProvider !== 'supabase') {
+    if (settings.externalDbEnabled && settings.externalDbProvider !== 'supabase') {
       toast.error('الربط الأساسي الحالي يعمل على Supabase فقط');
       return;
     }
 
-    const normalizedHeroImages = settings.heroImageUrls
-      .map((url) => url.trim())
-      .filter(Boolean);
-    const normalizedFooterCategories = settings.footerCategories
-      .map((category) => category.trim())
-      .filter(Boolean);
-    const normalizedQuickLinks = settings.quickLinks
-      .map((item) => ({
-        message: (item.message || '').trim(),
-        label: item.label.trim(),
-        url: item.url.trim()
-      }))
-      .filter((item) => item.label && item.url);
-
-    const normalizedSettings: StoreSettings = {
-      ...settings,
-      externalDbEnabled: true,
-      externalDbProvider: 'supabase',
-      storeName: settings.storeName.trim(),
-      storeEmail: settings.storeEmail.trim(),
-      storePhone: settings.storePhone.trim(),
-      whatsapp: settings.whatsapp.trim(),
-      logoUrl: settings.logoUrl.trim(),
-      faviconUrl: settings.faviconUrl.trim(),
-      logoHeightNavbar: Math.max(24, Number(settings.logoHeightNavbar) || 48),
-      logoHeightFooter: Math.max(24, Number(settings.logoHeightFooter) || 80),
-      heroSlideIntervalSec: Math.min(15, Math.max(2, Number(settings.heroSlideIntervalSec) || 5)),
-      heroImageUrls: normalizedHeroImages,
-      heroImageUrl: normalizedHeroImages[0] || settings.heroImageUrl.trim(),
-      facebookUrl: settings.facebookUrl.trim(),
-      instagramUrl: settings.instagramUrl.trim(),
-      tiktokUrl: settings.tiktokUrl.trim(),
-      youtubeUrl: settings.youtubeUrl.trim(),
-      footerCategories: normalizedFooterCategories,
-      quickLinks: normalizedQuickLinks,
-      externalDbUrl: settings.externalDbUrl.trim(),
-      externalDbName: settings.externalDbName.trim(),
-      externalDbApiKey: settings.externalDbApiKey.trim(),
-      userName: settings.userName.trim(),
-      userEmail: settings.userEmail.trim(),
-      themePrimaryColor: normalizeHexColor(settings.themePrimaryColor, DEFAULT_THEME_PRIMARY),
-      themeAccentColor: normalizeHexColor(settings.themeAccentColor, DEFAULT_THEME_ACCENT),
-      themeBackgroundColor: normalizeHexColor(settings.themeBackgroundColor, DEFAULT_THEME_BACKGROUND),
-      themeForegroundColor: normalizeHexColor(settings.themeForegroundColor, DEFAULT_THEME_FOREGROUND)
-    };
+    const normalizedSettings: StoreSettings = normalizeStoreSettings(settings, {
+      footerCategories: initialSettings.footerCategories,
+      quickLinks: initialSettings.quickLinks,
+      heroImageUrl: initialSettings.heroImageUrl,
+      heroImageUrls: initialSettings.heroImageUrls,
+      externalDbUrl: '',
+      externalDbName: '',
+      externalDbApiKey: ''
+    });
 
     saveStoreSettings(normalizedSettings);
     setSettings(normalizedSettings);
+
+    if (!normalizedSettings.externalDbEnabled) {
+      toast.success('تم حفظ الإعدادات محليًا مع تعطيل المزامنة السحابية');
+      return;
+    }
+
     let syncFailed = false;
     setIsSyncingSupabase(true);
     try {
@@ -173,10 +131,20 @@ export function SettingsPage() {
   };
 
   const handleSyncSupabase = async () => {
+    if (!settings.externalDbEnabled) {
+      toast.info('فعّل المزامنة السحابية أولًا قبل تنفيذ المزامنة اليدوية.');
+      return;
+    }
+
+    if (!settings.externalDbUrl.trim() || !settings.externalDbApiKey.trim()) {
+      toast.error('أدخل إعدادات Supabase كاملة قبل المزامنة.');
+      return;
+    }
+
     setIsSyncingSupabase(true);
     try {
       await syncLocalDataToSupabase();
-      toast.success('تم ربط ومزامنة البيانات المحلية مع Supabase بنجاح');
+      toast.success('تمت مزامنة المنتجات والإعدادات والسجل مع Supabase بنجاح');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'فشل ربط البيانات مع Supabase');
     } finally {
@@ -866,19 +834,23 @@ export function SettingsPage() {
             }`}
           >
             {isExternalDbConfigReady
-              ? 'حالة الربط: جاهز ومفعّل كأساس لجميع بيانات المنتجات/المستخدمين/الإعدادات.'
-              : 'حالة الربط: غير مكتمل. أدخل رابط Supabase ومفتاح API لتفعيل المصدر الأساسي بالكامل.'}
+              ? settings.externalDbEnabled
+                ? 'حالة الربط: جاهز والمزامنة السحابية مفعّلة للمنتجات والإعدادات والسجل.'
+                : 'الإعدادات مكتملة لكن المزامنة السحابية متوقفة حاليًا.'
+              : 'حالة الربط: غير مكتمل. أدخل رابط Supabase ومفتاح API ثم فعّل المزامنة عند الحاجة.'}
           </div>
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div className="space-y-1">
               <p className="font-medium">تفعيل قاعدة بيانات خارجية</p>
               <p className="text-xs text-muted-foreground">
-                الربط الخارجي مفعّل دائمًا بشكل إلزامي في هذا الإصدار.
+                عند التفعيل سيتم مزامنة المنتجات والإعدادات والسجل فقط. مستخدمو الإدارة يبقون محليين أو عبر Firebase.
               </p>
             </div>
             <Switch
-              checked
-              disabled
+              checked={settings.externalDbEnabled}
+              onCheckedChange={(checked) =>
+                setSettings((prev) => ({ ...prev, externalDbEnabled: checked }))
+              }
             />
           </div>
 
@@ -900,7 +872,7 @@ export function SettingsPage() {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              الربط الفعلي المطبق الآن يعمل مع Supabase. الخيارات الأخرى محفوظة للتحضير المستقبلي.
+              الربط الفعلي المطبق الآن يعمل مع Supabase فقط. لا تتم مزامنة مستخدمي الإدارة إلى السحابة.
             </p>
           </div>
 
@@ -911,6 +883,7 @@ export function SettingsPage() {
               value={settings.externalDbUrl}
               onChange={(e) => setSettings((prev) => ({ ...prev, externalDbUrl: e.target.value }))}
               placeholder="https://your-project.supabase.co"
+              disabled={!settings.externalDbEnabled}
             />
           </div>
 
@@ -921,6 +894,7 @@ export function SettingsPage() {
               value={settings.externalDbName}
               onChange={(e) => setSettings((prev) => ({ ...prev, externalDbName: e.target.value }))}
               placeholder="bagstore-prod"
+              disabled={!settings.externalDbEnabled}
             />
           </div>
 
@@ -933,9 +907,15 @@ export function SettingsPage() {
               onChange={(e) => setSettings((prev) => ({ ...prev, externalDbApiKey: e.target.value }))}
               placeholder="ضع مفتاح الوصول هنا"
               autoComplete="off"
+              disabled={!settings.externalDbEnabled}
             />
           </div>
-          <Button type="button" variant="outline" onClick={handleSyncSupabase} disabled={isSyncingSupabase}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleSyncSupabase}
+            disabled={isSyncingSupabase || !settings.externalDbEnabled}
+          >
             {isSyncingSupabase ? 'جارٍ المزامنة...' : 'مزامنة البيانات المحلية مع Supabase الآن'}
           </Button>
         </CardContent>
@@ -952,6 +932,11 @@ export function SettingsPage() {
           <CardDescription>إضافة، تعديل، حذف المستخدمين وتعيين الصلاحيات</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {!firebaseAuthEnabled && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              يتم حفظ مستخدمي لوحة التحكم محليًا فقط في هذا الوضع، ولا تتم مزامنتهم إلى Supabase لحماية بيانات الدخول.
+            </div>
+          )}
           {firebaseAuthEnabled && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
               تمت إدارة المستخدمين عبر Firebase Authentication. إضافة/تعديل/حذف المستخدمين تتم من Firebase Console.

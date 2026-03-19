@@ -92,7 +92,7 @@ export function Navbar() {
                     asChild
                     className={cn('px-2 sm:px-3', location.pathname === '/cart' && 'bg-secondary')}
                   >
-                    <Link to="/cart" className="relative" aria-label="السلة">
+                    <Link to="/cart" className="relative inline-flex items-center" aria-label={`السلة${count > 0 ? ` (${count})` : ''}`}>
                       <ShoppingCart className="w-4 h-4 ml-0 sm:ml-2" />
                       <span className="hidden sm:inline">السلة</span>
                       {count > 0 && (
@@ -132,10 +132,22 @@ export function Navbar() {
 
       {showMobileInstallButton && (
         <div className="fixed bottom-4 inset-x-0 z-[60] px-4 sm:hidden">
-          <Button size="sm" className="w-full shadow-lg" onClick={handleInstall}>
-            <Download className="w-4 h-4 ml-2" />
-            تثبيت التطبيق
-          </Button>
+          <div className="mx-auto flex max-w-md items-center gap-2">
+            <Button size="sm" variant="outline" asChild className="relative min-w-14 bg-white shadow-lg">
+              <Link to="/cart" aria-label={`السلة${count > 0 ? ` (${count})` : ''}`}>
+                <ShoppingCart className="w-4 h-4" />
+                {count > 0 && (
+                  <span className="absolute -top-2 -right-2 min-w-5 h-5 rounded-full bg-primary px-1 text-[11px] text-primary-foreground flex items-center justify-center">
+                    {count}
+                  </span>
+                )}
+              </Link>
+            </Button>
+            <Button size="sm" className="w-full shadow-lg" onClick={handleInstall}>
+              <Download className="w-4 h-4 ml-2" />
+              تثبيت التطبيق
+            </Button>
+          </div>
         </div>
       )}
     </>

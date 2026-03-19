@@ -9,6 +9,15 @@ import {
   signInWithFirebase,
   signOutFirebase
 } from './firebase-auth';
+import { firebaseSessionToUser } from './auth-session-utils';
+import {
+  DEFAULT_DEMO_CREDENTIALS,
+  DEFAULT_THEME_ACCENT,
+  DEFAULT_THEME_BACKGROUND,
+  DEFAULT_THEME_FOREGROUND,
+  DEFAULT_THEME_PRIMARY
+} from './storage-defaults';
+import { normalizeHexColor, normalizeStoreSettings } from './store-settings-utils';
 
 const STORAGE_KEYS = {
   PRODUCTS: 'bagstore_products',
@@ -40,13 +49,8 @@ if (import.meta.env.DEV) {
   if (!DEFAULT_EXTERNAL_DB_URL) console.warn('🚨 Supabase URL missing. Set VITE_SUPABASE_URL in .env.local');
   if (!DEFAULT_EXTERNAL_DB_API_KEY) console.warn('🚨 Supabase key missing. Set VITE_SUPABASE_ANON_KEY');
 }
-const DEFAULT_THEME_PRIMARY = '#d95f1f';
-const DEFAULT_THEME_ACCENT = '#d95f1f';
-const DEFAULT_THEME_BACKGROUND = '#ffffff';
-const DEFAULT_THEME_FOREGROUND = '#1a1a1a';
 const CLOUD_TABLES = {
   PRODUCTS: 'bagstore_products',
-  USERS: 'bagstore_users',
   SETTINGS: 'bagstore_settings',
   USER_LOGS: 'bagstore_user_logs'
 } as const;
@@ -73,30 +77,6 @@ type LoginGuardState = {
   failedAttempts: number;
   lockedUntil: number;
 };
-
-const DEFAULT_DEMO_CREDENTIALS = [
-  {
-    username: 'admin',
-    password: 'admin123',
-    role: 'admin' as const,
-    name: 'سعود الخزاعي',
-    email: 'admin@bagstore.com'
-  },
-  {
-    username: 'editor',
-    password: 'editor123',
-    role: 'editor' as const,
-    name: 'سارة علي',
-    email: 'editor@bagstore.com'
-  },
-  {
-    username: 'viewer',
-    password: 'viewer123',
-    role: 'viewer' as const,
-    name: 'محمد كريم',
-    email: 'viewer@bagstore.com'
-  }
-];
 
 function hashPassword(password: string): string {
   return `sha256:${SHA256(password).toString(Hex)}`;
@@ -211,6 +191,7 @@ let supabaseClientCacheKey = '';
 
 function isExternalSupabaseEnabled(settings: StoreSettings): boolean {
   return (
+    settings.externalDbEnabled &&
     settings.externalDbProvider === 'supabase' &&
     settings.externalDbUrl.trim().length > 0 &&
     settings.externalDbApiKey.trim().length > 0
@@ -357,11 +338,6 @@ function setSessionForUser(user: User): void {
   });
 }
 
-function normalizeHexColor(value: unknown, fallback: string): string {
-  const color = String(value || '').trim();
-  return /^#[0-9a-fA-F]{6}$/.test(color) ? color : fallback;
-}
-
 function formatSupabaseError(error: unknown, scope: string): Error {
   const err = (error || {}) as SupabaseLikeError;
   const code = err.code || '';
@@ -425,7 +401,6 @@ function getStoredUsers(): StoredUser[] {
 
 function saveStoredUsers(users: StoredUser[]): void {
   localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-  queueCloudSync(() => syncUsersToCloud(users));
 }
 
 function syncCurrentUser(users: StoredUser[]): void {
@@ -526,53 +501,6 @@ async function syncProductsToCloud(products: Product[]): Promise<void> {
 
   const { error: upsertError } = await supabase
     .from(CLOUD_TABLES.PRODUCTS)
-    .upsert(payload, { onConflict: 'id' });
-
-  if (upsertError) {
-    throw upsertError;
-  }
-}
-
-async function syncUsersToCloud(users: StoredUser[]): Promise<void> {
-  const settings = getStoreSettings();
-  const supabase = getSupabaseClient(settings);
-  if (!supabase) return;
-
-  const { data: existingRows, error: fetchError } = await supabase
-    .from(CLOUD_TABLES.USERS)
-    .select('id');
-
-  if (fetchError) {
-    throw fetchError;
-  }
-
-  const existingIds = new Set((existingRows || []).map((row) => String(row.id)));
-  const nextIds = new Set(users.map((user) => user.id));
-  const staleIds = [...existingIds].filter((id) => !nextIds.has(id));
-
-  if (staleIds.length > 0) {
-    const { error: deleteError } = await supabase
-      .from(CLOUD_TABLES.USERS)
-      .delete()
-      .in('id', staleIds);
-
-    if (deleteError) {
-      throw deleteError;
-    }
-  }
-
-  if (users.length === 0) {
-    return;
-  }
-
-  const payload = users.map((user) => ({
-    id: user.id,
-    data: user,
-    updated_at: new Date().toISOString()
-  }));
-
-  const { error: upsertError } = await supabase
-    .from(CLOUD_TABLES.USERS)
     .upsert(payload, { onConflict: 'id' });
 
   if (upsertError) {
@@ -686,12 +614,6 @@ export const syncLocalDataToSupabase = async (): Promise<void> => {
   }
 
   try {
-    await syncUsersToCloud(getStoredUsers());
-  } catch (error) {
-    throw formatSupabaseError(error, 'المستخدمين');
-  }
-
-  try {
     await syncSettingsToCloud(settings);
   } catch (error) {
     throw formatSupabaseError(error, 'الإعدادات');
@@ -724,9 +646,8 @@ export const initializeStorage = async (): Promise<void> => {
   if (!supabase) return;
 
   try {
-    const [{ data: productRows, error: productError }, { data: usersRows, error: usersError }, { data: settingsRow, error: settingsError }, { data: logsRows, error: logsError }] = await Promise.all([
+    const [{ data: productRows, error: productError }, { data: settingsRow, error: settingsError }, { data: logsRows, error: logsError }] = await Promise.all([
       supabase.from(CLOUD_TABLES.PRODUCTS).select('id,data'),
-      supabase.from(CLOUD_TABLES.USERS).select('id,data'),
       supabase
         .from(CLOUD_TABLES.SETTINGS)
         .select('key,data')
@@ -737,9 +658,6 @@ export const initializeStorage = async (): Promise<void> => {
 
     if (productError) {
       if (import.meta.env.DEV) console.warn('Supabase products fetch failed:', productError);
-    }
-    if (usersError) {
-      if (import.meta.env.DEV) console.warn('Supabase users fetch failed:', usersError);
     }
     if (settingsError) {
       if (import.meta.env.DEV) console.warn('Supabase settings fetch failed:', settingsError);
@@ -758,9 +676,6 @@ export const initializeStorage = async (): Promise<void> => {
         const normalized = normalizeStoredProduct(rawProduct);
         return !normalized || JSON.stringify(rawProduct) !== JSON.stringify(normalized);
       });
-    const cloudUsers = (usersRows || [])
-      .map((row) => row.data as StoredUser)
-      .filter((user) => user && typeof user.id === 'string' && typeof user.password === 'string');
     const cloudSettings = settingsRow?.data as StoreSettings | undefined;
     const cloudLogs = (logsRows || [])
       .map((row) => row.data as UserActivityLog)
@@ -770,9 +685,6 @@ export const initializeStorage = async (): Promise<void> => {
     if (cloudProducts.length > 0) {
       localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(cloudProducts));
       emitProductsUpdated();
-    }
-    if (cloudUsers.length > 0) {
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(cloudUsers));
     }
     if (cloudSettings) {
       const mergedCloudSettings: StoreSettings = {
@@ -793,7 +705,6 @@ export const initializeStorage = async (): Promise<void> => {
     try {
       if (cloudProducts.length === 0) await syncProductsToCloud(getProducts());
       if (cloudProducts.length > 0 && cloudProductsWereSanitized) await syncProductsToCloud(cloudProducts);
-      if (cloudUsers.length === 0) await syncUsersToCloud(getStoredUsers());
       if (!cloudSettings) await syncSettingsToCloud(getStoreSettings());
       if (cloudLogs.length === 0) await syncUserLogsToCloud(getUserLogsInternal());
     } catch (seedError) {
@@ -949,17 +860,7 @@ export const hydrateAuthSession = async (): Promise<void> => {
     return;
   }
 
-  const publicUser: User = {
-    id: firebaseSession.uid,
-    name: firebaseSession.displayName || firebaseSession.email.split('@')[0] || 'مستخدم',
-    username: firebaseSession.email || firebaseSession.uid,
-    email: firebaseSession.email || `${firebaseSession.uid}@local`,
-    role: firebaseSession.role,
-    avatar: firebaseSession.photoURL || undefined,
-    createdAt: new Date().toISOString()
-  };
-
-  setSessionForUser(publicUser);
+  setSessionForUser(firebaseSessionToUser(firebaseSession));
 };
 
 export const getLoginLockoutRemainingMs = (): number => {
@@ -1034,15 +935,7 @@ export const login = async (username: string, password: string): Promise<User | 
   if (isFirebaseAuthEnabled()) {
     try {
       const firebaseSession = await signInWithFirebase(normalizedUsername, password);
-      publicUser = {
-        id: firebaseSession.uid,
-        name: firebaseSession.displayName || firebaseSession.email.split('@')[0] || 'مستخدم',
-        username: firebaseSession.email || firebaseSession.uid,
-        email: firebaseSession.email || `${firebaseSession.uid}@local`,
-        role: firebaseSession.role,
-        avatar: firebaseSession.photoURL || undefined,
-        createdAt: new Date().toISOString()
-      };
+      publicUser = firebaseSessionToUser(firebaseSession);
     } catch {
       publicUser = null;
     }
@@ -1359,88 +1252,51 @@ export const getStoreSettings = (): StoreSettings => {
     return DEFAULT_SETTINGS;
   }
 
-  const mergedSettings = {
-    ...DEFAULT_SETTINGS,
-    ...stored
-  };
-
-  // Backward compatibility for older data that only had a single hero image field.
-  const normalizedHeroImages = Array.isArray(mergedSettings.heroImageUrls)
-    ? mergedSettings.heroImageUrls.map((url) => String(url).trim()).filter(Boolean)
-    : [];
-  const normalizedFooterCategories = Array.isArray(mergedSettings.footerCategories)
-    ? mergedSettings.footerCategories
-      .map((category) => String(category).trim())
-      .filter(Boolean)
-    : [];
-  const normalizedQuickLinks = Array.isArray(mergedSettings.quickLinks)
-    ? mergedSettings.quickLinks
-      .map((item) => ({
-        message: String(item?.message || '').trim(),
-        label: String(item?.label || '').trim(),
-        url: String(item?.url || '').trim()
-      }))
-      .filter((item) => item.label && item.url)
-    : [];
+  const normalizedSettings = normalizeStoreSettings(
+    {
+      ...DEFAULT_SETTINGS,
+      ...stored
+    },
+    {
+      footerCategories: DEFAULT_SETTINGS.footerCategories,
+      quickLinks: DEFAULT_SETTINGS.quickLinks,
+      heroImageUrl: DEFAULT_SETTINGS.heroImageUrl,
+      heroImageUrls: DEFAULT_SETTINGS.heroImageUrls,
+      externalDbUrl: DEFAULT_EXTERNAL_DB_URL,
+      externalDbName: DEFAULT_EXTERNAL_DB_NAME,
+      externalDbApiKey: DEFAULT_EXTERNAL_DB_API_KEY
+    }
+  );
 
   return {
-    ...mergedSettings,
-    heroSlideIntervalSec: Math.min(
-      15,
-      Math.max(2, Number(mergedSettings.heroSlideIntervalSec) || 5)
-    ),
-    heroImageUrls:
-      normalizedHeroImages.length > 0
-        ? normalizedHeroImages
-        : mergedSettings.heroImageUrl.trim()
-          ? [mergedSettings.heroImageUrl.trim()]
-          : [],
-    footerCategories:
-      normalizedFooterCategories.length > 0
-        ? normalizedFooterCategories
-        : DEFAULT_SETTINGS.footerCategories,
-    quickLinks:
-      normalizedQuickLinks.length > 0
-        ? normalizedQuickLinks
-        : DEFAULT_SETTINGS.quickLinks,
-    externalDbEnabled: true,
-    externalDbProvider: 'supabase',
-    externalDbUrl: String(mergedSettings.externalDbUrl || DEFAULT_EXTERNAL_DB_URL).trim(),
-    externalDbName: String(mergedSettings.externalDbName || DEFAULT_EXTERNAL_DB_NAME).trim(),
-    externalDbApiKey: String(mergedSettings.externalDbApiKey || DEFAULT_EXTERNAL_DB_API_KEY).trim(),
-    visitorCount: Math.max(0, Number(mergedSettings.visitorCount) || 0),
-    visitorUniqueCount: Math.max(0, Number(mergedSettings.visitorUniqueCount) || 0),
-    visitorDailyStats: pruneVisitorDayStats(toSafeCounterRecord(mergedSettings.visitorDailyStats)),
-    visitorMonthlyStats: pruneVisitorMonthStats(toSafeCounterRecord(mergedSettings.visitorMonthlyStats)),
-    themePrimaryColor: normalizeHexColor(mergedSettings.themePrimaryColor, DEFAULT_THEME_PRIMARY),
-    themeAccentColor: normalizeHexColor(mergedSettings.themeAccentColor, DEFAULT_THEME_ACCENT),
-    themeBackgroundColor: normalizeHexColor(mergedSettings.themeBackgroundColor, DEFAULT_THEME_BACKGROUND),
-    themeForegroundColor: normalizeHexColor(mergedSettings.themeForegroundColor, DEFAULT_THEME_FOREGROUND)
+    ...normalizedSettings,
+    visitorDailyStats: pruneVisitorDayStats(toSafeCounterRecord(normalizedSettings.visitorDailyStats)),
+    visitorMonthlyStats: pruneVisitorMonthStats(toSafeCounterRecord(normalizedSettings.visitorMonthlyStats)),
+    themePrimaryColor: normalizeHexColor(normalizedSettings.themePrimaryColor, DEFAULT_THEME_PRIMARY),
+    themeAccentColor: normalizeHexColor(normalizedSettings.themeAccentColor, DEFAULT_THEME_ACCENT),
+    themeBackgroundColor: normalizeHexColor(normalizedSettings.themeBackgroundColor, DEFAULT_THEME_BACKGROUND),
+    themeForegroundColor: normalizeHexColor(normalizedSettings.themeForegroundColor, DEFAULT_THEME_FOREGROUND)
   };
 };
 
 export const saveStoreSettings = (settings: StoreSettings): StoreSettings => {
   const normalizedSettings: StoreSettings = {
-    ...settings,
-    footerCategories: settings.footerCategories
-      .map((category) => category.trim())
-      .filter(Boolean),
-    quickLinks: settings.quickLinks
-      .map((item) => ({
-        message: (item.message || '').trim(),
-        label: item.label.trim(),
-        url: item.url.trim()
-      }))
-      .filter((item) => item.label && item.url),
-    visitorCount: Math.max(0, Number(settings.visitorCount) || 0),
-    visitorUniqueCount: Math.max(0, Number(settings.visitorUniqueCount) || 0),
+    ...normalizeStoreSettings(settings, {
+      footerCategories: DEFAULT_SETTINGS.footerCategories,
+      quickLinks: DEFAULT_SETTINGS.quickLinks,
+      heroImageUrl: DEFAULT_SETTINGS.heroImageUrl,
+      heroImageUrls: DEFAULT_SETTINGS.heroImageUrls,
+      externalDbUrl: DEFAULT_EXTERNAL_DB_URL,
+      externalDbName: DEFAULT_EXTERNAL_DB_NAME,
+      externalDbApiKey: DEFAULT_EXTERNAL_DB_API_KEY
+    }),
     visitorDailyStats: pruneVisitorDayStats(toSafeCounterRecord(settings.visitorDailyStats)),
     visitorMonthlyStats: pruneVisitorMonthStats(toSafeCounterRecord(settings.visitorMonthlyStats)),
-    externalDbEnabled: true,
-    externalDbProvider: 'supabase'
   };
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(normalizedSettings));
-  queueCloudSync(() => syncSettingsToCloud(normalizedSettings));
+  if (isExternalSupabaseEnabled(normalizedSettings)) {
+    queueCloudSync(() => syncSettingsToCloud(normalizedSettings));
+  }
   window.dispatchEvent(new Event('bagstore:settings-updated'));
   return normalizedSettings;
 };
@@ -1490,6 +1346,8 @@ export const trackVisitorSession = (): void => {
   if (!changed) return;
 
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(next));
-  queueCloudSync(() => syncSettingsToCloud(next));
+  if (isExternalSupabaseEnabled(next)) {
+    queueCloudSync(() => syncSettingsToCloud(next));
+  }
   window.dispatchEvent(new Event('bagstore:settings-updated'));
 };
