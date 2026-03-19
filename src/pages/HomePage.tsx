@@ -3,12 +3,12 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, Star, Shield, Truck, Headphones, Facebook, Instagram, Music2, Youtube } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProductCard } from '@/components/features/ProductCard';
-import { getProducts } from '@/lib/storage';
 import { useStoreSettings } from '@/hooks/use-store-settings';
+import { useProducts } from '@/hooks/use-products';
 import heroImage from '@/assets/hero-bags.jpg';
 
 export function HomePage() {
-  const products = getProducts();
+  const products = useProducts();
   const settings = useStoreSettings();
   const featuredProducts = products.filter(p => p.featured).slice(0, 4);
   const whatsappLink = `https://wa.me/${settings.whatsapp.replace(/[^\d]/g, '')}`;

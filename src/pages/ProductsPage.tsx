@@ -1,11 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import { ProductCard } from '@/components/features/ProductCard';
 import { ProductFilters } from '@/components/features/ProductFilters';
-import { getProducts, getStoreSettings } from '@/lib/storage';
+import { getStoreSettings } from '@/lib/storage';
 import { FilterOptions } from '@/types';
+import { useProducts } from '@/hooks/use-products';
 
 export function ProductsPage() {
-  const products = getProducts();
+  const products = useProducts();
   const settings = getStoreSettings();
   const maxProductPrice = Math.max(...products.map((p) => p.salePrice || p.price), 0);
   const categories = useMemo(() => {

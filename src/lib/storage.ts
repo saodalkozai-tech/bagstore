@@ -52,6 +52,7 @@ const CLOUD_TABLES = {
 } as const;
 const CLOUD_SETTINGS_KEY = 'default';
 export const CLOUD_SYNC_ERROR_EVENT = 'bagstore:cloud-sync-error';
+export const PRODUCTS_UPDATED_EVENT = 'bagstore:products-updated';
 type StoredUser = User & { password: string };
 type UserMutationResult = {
   success: boolean;
@@ -651,6 +652,11 @@ function emitCloudSyncError(detail: { message: string }): void {
   window.dispatchEvent(new CustomEvent(CLOUD_SYNC_ERROR_EVENT, { detail }));
 }
 
+function emitProductsUpdated(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event(PRODUCTS_UPDATED_EVENT));
+}
+
 function queueCloudSync(task: () => Promise<void>): void {
   task().catch((error) => {
     console.error('Cloud sync error:', error);
@@ -763,6 +769,7 @@ export const initializeStorage = async (): Promise<void> => {
 
     if (cloudProducts.length > 0) {
       localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(cloudProducts));
+      emitProductsUpdated();
     }
     if (cloudUsers.length > 0) {
       localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(cloudUsers));
@@ -797,6 +804,35 @@ export const initializeStorage = async (): Promise<void> => {
   }
 };
 
+export const refreshProductsFromSupabase = async (): Promise<boolean> => {
+  const settings = getStoreSettings();
+  const supabase = getSupabaseClient(settings);
+  if (!supabase) return false;
+
+  const { data: productRows, error } = await supabase
+    .from(CLOUD_TABLES.PRODUCTS)
+    .select('id,data');
+
+  if (error) {
+    throw formatSupabaseError(error, 'المنتجات');
+  }
+
+  const cloudProducts = (productRows || [])
+    .map((row) => normalizeStoredProduct(row.data))
+    .filter((product): product is Product => Boolean(product));
+
+  if (cloudProducts.length === 0) return false;
+
+  const currentProducts = getProducts();
+  if (JSON.stringify(currentProducts) === JSON.stringify(cloudProducts)) {
+    return false;
+  }
+
+  localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(cloudProducts));
+  emitProductsUpdated();
+  return true;
+};
+
 // Products Storage
 export const getProducts = (): Product[] => {
   const products = safeParse<unknown[] | null>(
@@ -815,6 +851,7 @@ export const getProducts = (): Product[] => {
 
   if (normalizedProducts.length !== products.length || JSON.stringify(normalizedProducts) !== JSON.stringify(products)) {
     localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(normalizedProducts));
+    emitProductsUpdated();
     queueCloudSync(() => syncProductsToCloud(normalizedProducts));
   }
 
@@ -823,6 +860,7 @@ export const getProducts = (): Product[] => {
 
 export const saveProducts = (products: Product[]): void => {
   localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
+  emitProductsUpdated();
   queueCloudSync(() => syncProductsToCloud(products));
 };
 
