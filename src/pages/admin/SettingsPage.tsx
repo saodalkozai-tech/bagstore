@@ -569,7 +569,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="max-w-6xl space-y-6 overflow-x-hidden">
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
         <div className="bg-[radial-gradient(circle_at_top_right,_rgba(217,95,31,0.18),_transparent_35%),linear-gradient(135deg,#fff7ed_0%,#ffffff_45%,#f8fafc_100%)] px-4 py-5 sm:px-6 sm:py-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -609,7 +609,7 @@ export function SettingsPage() {
             <p className="text-sm font-semibold text-slate-700">التنقل بين أقسام الإعدادات</p>
             <p className="hidden text-xs text-slate-500 sm:block">مرر أفقيًا على الجوال للتنقل بسرعة</p>
           </div>
-          <TabsList className="flex h-auto w-full gap-2 overflow-x-auto bg-transparent p-0 pb-1">
+          <TabsList className="flex h-auto w-full gap-2 overflow-x-auto bg-transparent p-0 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {SETTINGS_SECTIONS.map((section) => {
               const Icon = section.icon;
               return (
@@ -753,7 +753,7 @@ export function SettingsPage() {
                 {settings.heroImageUrls.length > 0 ? (
                   <div className="space-y-2">
                     {settings.heroImageUrls.map((url, index) => (
-                      <div key={`${index}-${url}`} className="flex items-center gap-2">
+                      <div key={`${index}-${url}`} className="flex flex-col gap-2 sm:flex-row sm:items-center">
                         <Input
                           value={url}
                           onChange={(e) => handleHeroImageChange(index, e.target.value)}
@@ -763,6 +763,7 @@ export function SettingsPage() {
                           type="button"
                           variant="outline"
                           size="icon"
+                          className="w-full sm:w-10"
                           onClick={() => removeHeroImage(index)}
                         >
                           <Trash2 className="w-4 h-4 text-red-600" />
@@ -841,12 +842,12 @@ export function SettingsPage() {
 
             <div className="space-y-6">
               <div className="rounded-xl border border-slate-200 p-4">
-                <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
                   <div>
                     <h3 className="font-semibold text-slate-900">فئات الفوتر</h3>
                     <p className="text-sm text-slate-500">ترتيب الفئات الظاهرة أسفل الموقع.</p>
                   </div>
-                  <Button type="button" variant="outline" size="sm" onClick={addFooterCategoryRow}>
+                  <Button type="button" variant="outline" size="sm" onClick={addFooterCategoryRow} className="w-full sm:w-auto">
                     <Plus className="w-4 h-4 ml-2" />
                     إضافة فئة
                   </Button>
@@ -854,7 +855,7 @@ export function SettingsPage() {
                 {settings.footerCategories.length > 0 ? (
                   <div className="space-y-2">
                     {settings.footerCategories.map((category, index) => (
-                      <div key={`${index}-${category}`} className="flex items-center gap-2">
+                      <div key={`${index}-${category}`} className="flex flex-col gap-2 sm:flex-row sm:items-center">
                         <Input
                           value={category}
                           onChange={(e) => handleFooterCategoryChange(index, e.target.value)}
@@ -864,6 +865,7 @@ export function SettingsPage() {
                           type="button"
                           variant="outline"
                           size="icon"
+                          className="w-full sm:w-10"
                           onClick={() => removeFooterCategory(index)}
                         >
                           <Trash2 className="w-4 h-4 text-red-600" />
@@ -877,12 +879,12 @@ export function SettingsPage() {
               </div>
 
               <div className="rounded-xl border border-slate-200 p-4">
-                <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="mb-4 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
                   <div>
                     <h3 className="font-semibold text-slate-900">الروابط السريعة</h3>
                     <p className="text-sm text-slate-500">روابط مختصرة تظهر في واجهة المتجر أو الفوتر.</p>
                   </div>
-                  <Button type="button" variant="outline" size="sm" onClick={addQuickLinkRow}>
+                  <Button type="button" variant="outline" size="sm" onClick={addQuickLinkRow} className="w-full sm:w-auto">
                     <Plus className="w-4 h-4 ml-2" />
                     إضافة رابط
                   </Button>
@@ -911,7 +913,7 @@ export function SettingsPage() {
                           variant="outline"
                           size="icon"
                           onClick={() => removeQuickLink(index)}
-                          className="md:justify-self-end"
+                          className="w-full md:w-10 md:justify-self-end"
                         >
                           <Trash2 className="w-4 h-4 text-red-600" />
                         </Button>
@@ -995,7 +997,7 @@ export function SettingsPage() {
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="space-y-6">
               <div className="rounded-xl border border-slate-200 p-4">
-                <div className="mb-4 flex items-center justify-between rounded-lg border p-3">
+                <div className="mb-4 flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-1">
                     <p className="font-medium">تفعيل قاعدة بيانات خارجية</p>
                     <p className="text-xs text-muted-foreground">
@@ -1151,7 +1153,7 @@ export function SettingsPage() {
               تمت إدارة المستخدمين عبر Firebase Authentication. إضافة/تعديل/حذف المستخدمين تتم من Firebase Console.
             </div>
           )}
-          <div className="grid gap-3 md:grid-cols-5">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <Input
               placeholder="الاسم"
               value={newUser.name}
@@ -1193,7 +1195,7 @@ export function SettingsPage() {
               disabled={firebaseAuthEnabled}
             />
           </div>
-          <Button type="button" onClick={handleAddUser} disabled={firebaseAuthEnabled}>
+          <Button type="button" onClick={handleAddUser} disabled={firebaseAuthEnabled} className="w-full sm:w-auto">
             <Plus className="w-4 h-4 ml-2" />
             إضافة مستخدم
           </Button>
@@ -1202,8 +1204,8 @@ export function SettingsPage() {
 
           <div className="space-y-4">
             {users.map((user) => (
-              <div key={user.id} className="border rounded-lg p-4 space-y-3">
-                <div className="grid md:grid-cols-4 gap-3">
+              <div key={user.id} className="space-y-3 rounded-lg border p-4">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   <Input
                     value={user.name}
                     onChange={(e) => handleUserFieldChange(user.id, 'name', e.target.value)}
@@ -1238,7 +1240,7 @@ export function SettingsPage() {
                   </Select>
                 </div>
 
-                <div className="grid items-center gap-2 md:grid-cols-[1fr_auto_auto_auto]">
+                <div className="grid items-center gap-2 md:grid-cols-2 xl:grid-cols-[1fr_auto_auto_auto]">
                   <Input
                     type="password"
                     placeholder={`كلمة مرور جديدة للمستخدم (${ROLE_LABELS[user.role]})`}
@@ -1248,14 +1250,14 @@ export function SettingsPage() {
                     }
                     disabled={firebaseAuthEnabled}
                   />
-                  <Button type="button" variant="outline" onClick={() => handleUserPasswordUpdate(user.id)} disabled={firebaseAuthEnabled}>
+                  <Button type="button" variant="outline" onClick={() => handleUserPasswordUpdate(user.id)} disabled={firebaseAuthEnabled} className="w-full">
                     تغيير كلمة المرور
                   </Button>
-                  <Button type="button" variant="secondary" onClick={() => handleSaveUser(user.id)} disabled={firebaseAuthEnabled}>
+                  <Button type="button" variant="secondary" onClick={() => handleSaveUser(user.id)} disabled={firebaseAuthEnabled} className="w-full">
                     <Save className="w-4 h-4 ml-2" />
                     حفظ
                   </Button>
-                  <Button type="button" variant="destructive" onClick={() => handleDeleteUser(user.id)} disabled={firebaseAuthEnabled}>
+                  <Button type="button" variant="destructive" onClick={() => handleDeleteUser(user.id)} disabled={firebaseAuthEnabled} className="w-full">
                     <Trash2 className="w-4 h-4 ml-2" />
                     حذف
                   </Button>
@@ -1327,7 +1329,7 @@ export function SettingsPage() {
                 {DISPLAY_COLOR_FIELDS.map((field) => (
                   <div key={field.id} className="space-y-2">
                     <Label htmlFor={field.id}>{field.label}</Label>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <Input
                         id={field.id}
                         type="color"
@@ -1440,7 +1442,7 @@ export function SettingsPage() {
       )}
 
       {['store', 'cloudinary', 'database', 'display'].includes(activeSection) && (
-      <div className="sticky bottom-4 z-20 flex flex-wrap justify-end gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
+      <div className="sticky bottom-4 z-20 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur sm:flex-row sm:flex-wrap sm:justify-end">
         <Button variant="outline" size="lg" onClick={resetChanges} className="min-w-28 w-full sm:w-auto">
           إلغاء
         </Button>
