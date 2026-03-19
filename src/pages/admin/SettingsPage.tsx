@@ -78,6 +78,15 @@ const SETTINGS_SECTIONS: Array<{
   { id: 'security', label: 'الأمان', description: 'كلمات المرور', icon: Shield }
 ];
 
+const SETTINGS_SECTION_LABELS: Record<SettingsSection, string> = {
+  store: 'معلومات المتجر',
+  cloudinary: 'Cloudinary',
+  database: 'قاعدة البيانات',
+  users: 'المستخدمون',
+  display: 'إعدادات العرض',
+  security: 'الأمان'
+};
+
 const STORE_INFO_FIELDS: Array<{
   key: keyof StoreSettings;
   id: string;
@@ -604,12 +613,29 @@ export function SettingsPage() {
         onValueChange={(value) => setActiveSection(value as SettingsSection)}
         className="space-y-4"
       >
-        <div className="sticky top-20 z-20 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur">
+        <div className="z-20 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur sm:sticky sm:top-20">
           <div className="mb-3 flex items-center justify-between gap-4">
             <p className="text-sm font-semibold text-slate-700">التنقل بين أقسام الإعدادات</p>
             <p className="hidden text-xs text-slate-500 sm:block">مرر أفقيًا على الجوال للتنقل بسرعة</p>
           </div>
-          <TabsList className="flex h-auto w-full gap-2 overflow-x-auto bg-transparent p-0 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="sm:hidden">
+            <Select
+              value={activeSection}
+              onValueChange={(value: SettingsSection) => setActiveSection(value)}
+            >
+              <SelectTrigger className="h-12 rounded-xl">
+                <SelectValue placeholder="اختر القسم" />
+              </SelectTrigger>
+              <SelectContent>
+                {SETTINGS_SECTIONS.map((section) => (
+                  <SelectItem key={section.id} value={section.id}>
+                    {SETTINGS_SECTION_LABELS[section.id]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <TabsList className="hidden h-auto w-full gap-2 overflow-x-auto bg-transparent p-0 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex">
             {SETTINGS_SECTIONS.map((section) => {
               const Icon = section.icon;
               return (
@@ -1442,7 +1468,7 @@ export function SettingsPage() {
       )}
 
       {['store', 'cloudinary', 'database', 'display'].includes(activeSection) && (
-      <div className="sticky bottom-4 z-20 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur sm:flex-row sm:flex-wrap sm:justify-end">
+      <div className="z-20 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur sm:sticky sm:bottom-4 sm:flex-row sm:flex-wrap sm:justify-end">
         <Button variant="outline" size="lg" onClick={resetChanges} className="min-w-28 w-full sm:w-auto">
           إلغاء
         </Button>
