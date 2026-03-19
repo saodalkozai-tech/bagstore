@@ -959,22 +959,36 @@ export const login = async (username: string, password: string): Promise<User | 
   const normalizedUsername = username.trim();
   let publicUser: User | null = null;
 
-  if (isFirebaseAuthEnabled()) {
+  // استخدام Supabase فقط للمصادقة
+  const settings = getStoreSettings();
+  const supabase = getSupabaseClient(settings);
+
+  if (supabase) {
     try {
-      const firebaseSession = await signInWithFirebase(normalizedUsername, password);
-      publicUser = firebaseSessionToUser(firebaseSession);
+      const { data, error } = await supabase
+        .from('admin_users')
+        .select('*')
+        .eq('username', normalizedUsername)
+        .single();
+
+      if (error || !data) {
+        publicUser = null;
+      } else {
+        // التحقق من كلمة المرور
+        if (verifyPassword(password, data.password)) {
+          publicUser = {
+            id: data.id,
+            name: data.name,
+            username: data.username,
+            email: data.email,
+            role: data.role,
+            avatar: data.avatar || '',
+            createdAt: data.created_at
+          };
+        }
+      }
     } catch {
       publicUser = null;
-    }
-  } else {
-    const users = getStoredUsers();
-    const matchedUser = users.find(
-      (user) =>
-        user.username.toLowerCase() === normalizedUsername.toLowerCase() &&
-        verifyPassword(password, user.password)
-    );
-    if (matchedUser) {
-      publicUser = toPublicUser(matchedUser);
     }
   }
 
