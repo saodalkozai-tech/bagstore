@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Plus, Trash2, Upload } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -244,6 +244,11 @@ export function ProductFormDialog({ open, onOpenChange, product, onSuccess }: Pr
           <DialogTitle className="text-xl sm:text-2xl">
             {product ? 'تعديل المنتج' : 'إضافة منتج جديد'}
           </DialogTitle>
+          <DialogDescription>
+            {product
+              ? 'حدّث بيانات المنتج والصور ثم احفظ التعديلات لمزامنتها مع قاعدة البيانات.'
+              : 'أدخل بيانات المنتج الجديد وأضف الصور ثم احفظه ليظهر في المتجر.'}
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Mail, Phone, MapPin } from 'lucide-react';
 import { useStoreSettings } from '@/hooks/use-store-settings';
 import { useLocation } from 'react-router-dom';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import './footer.css';
 
@@ -110,6 +110,9 @@ export function Footer() {
         <DialogContent className="footer-dialog">
           <DialogHeader>
             <DialogTitle>رسالة</DialogTitle>
+            <DialogDescription>
+              نافذة تعرض رسالة الرابط السريع مع خيار المتابعة عبر واتساب أو الإغلاق.
+            </DialogDescription>
           </DialogHeader>
           <p className="footer-dialog-message">{activeMessage}</p>
           <div className="footer-dialog-actions">

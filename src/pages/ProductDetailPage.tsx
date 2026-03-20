@@ -4,7 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowRight, ShoppingCart, Check, Package, Truck, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { formatPrice, getWhatsAppLink, calculateDiscount } from '@/lib/utils';
 import { useCart } from '@/hooks/use-cart';
 import { useProducts } from '@/hooks/use-products';
@@ -235,6 +235,10 @@ export function ProductDetailPage() {
 
       <Dialog open={isImageOpen} onOpenChange={setIsImageOpen}>
         <DialogContent className="max-w-[95vw] p-2 sm:max-w-5xl">
+          <DialogTitle className="sr-only">معاينة صورة المنتج</DialogTitle>
+          <DialogDescription className="sr-only">
+            عرض مكبر للصورة الحالية من المنتج {product.name}.
+          </DialogDescription>
           <img
             src={product.images[selectedImage]}
             alt={product.name}

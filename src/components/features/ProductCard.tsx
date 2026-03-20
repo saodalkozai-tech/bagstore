@@ -3,7 +3,7 @@ import { ShoppingCart, Eye, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Product } from '@/types';
 import { formatPrice, getWhatsAppLink, calculateDiscount } from '@/lib/utils';
 import { useCart } from '@/hooks/use-cart';
@@ -131,6 +131,10 @@ export function ProductCard({ product }: ProductCardProps) {
 
       <Dialog open={isImageOpen} onOpenChange={setIsImageOpen}>
         <DialogContent className="max-w-[95vw] p-2 sm:max-w-4xl">
+          <DialogTitle className="sr-only">معاينة صورة المنتج</DialogTitle>
+          <DialogDescription className="sr-only">
+            عرض مكبر لصورة المنتج {product.name}.
+          </DialogDescription>
           <img
             src={product.images[0]}
             alt={product.name}
