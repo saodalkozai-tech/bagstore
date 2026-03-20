@@ -61,25 +61,26 @@ with check (
   )
 );
 
-drop policy if exists "logs_read_admin" on public.bagstore_user_logs;
-create policy "logs_read_admin"
+drop policy if exists "logs_read_authenticated" on public.bagstore_user_logs;
+create policy "logs_read_authenticated"
 on public.bagstore_user_logs
 for select
 to authenticated
-using (
-  exists (
-    select 1
-    from public.profiles
-    where profiles.id = auth.uid()
-      and profiles.role = 'admin'
-  )
-);
+using (true);
 
 drop policy if exists "logs_write_authenticated" on public.bagstore_user_logs;
 create policy "logs_write_authenticated"
 on public.bagstore_user_logs
 for insert
 to authenticated
+with check (true);
+
+drop policy if exists "logs_update_authenticated" on public.bagstore_user_logs;
+create policy "logs_update_authenticated"
+on public.bagstore_user_logs
+for update
+to authenticated
+using (true)
 with check (true);
 
 drop policy if exists "logs_delete_admin" on public.bagstore_user_logs;

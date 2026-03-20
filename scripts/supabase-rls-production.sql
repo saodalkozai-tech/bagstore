@@ -11,8 +11,9 @@ drop policy if exists "products_read_public" on public.bagstore_products;
 drop policy if exists "products_write_staff" on public.bagstore_products;
 drop policy if exists "settings_read_public" on public.bagstore_settings;
 drop policy if exists "settings_write_admin" on public.bagstore_settings;
-drop policy if exists "logs_read_admin" on public.bagstore_user_logs;
+drop policy if exists "logs_read_authenticated" on public.bagstore_user_logs;
 drop policy if exists "logs_write_authenticated" on public.bagstore_user_logs;
+drop policy if exists "logs_update_authenticated" on public.bagstore_user_logs;
 drop policy if exists "logs_delete_admin" on public.bagstore_user_logs;
 drop policy if exists "profiles_select_for_authenticated" on public.profiles;
 drop policy if exists "profiles_insert_own_profile" on public.profiles;
@@ -72,23 +73,23 @@ with check (
   )
 );
 
-create policy "logs_read_admin"
+create policy "logs_read_authenticated"
 on public.bagstore_user_logs
 for select
 to authenticated
-using (
-  exists (
-    select 1
-    from public.profiles
-    where profiles.id = auth.uid()
-      and profiles.role = 'admin'
-  )
-);
+using (true);
 
 create policy "logs_write_authenticated"
 on public.bagstore_user_logs
 for insert
 to authenticated
+with check (true);
+
+create policy "logs_update_authenticated"
+on public.bagstore_user_logs
+for update
+to authenticated
+using (true)
 with check (true);
 
 create policy "logs_delete_admin"
