@@ -1,179 +1,138 @@
 -- ========================================
--- إنشاء جميع الجداول المطلوبة في Supabase
+-- BagStore Supabase schema matching the current app
 -- ========================================
--- ملاحظة: يجب تنفيذ هذا الملف في SQL Editor في لوحة تحكم Supabase
--- URL: https://supabase.com/dashboard/project/ljxgrubmnviqwtzudnzl/sql/new
+-- Execute in Supabase SQL Editor:
+-- https://supabase.com/dashboard/project/ljxgrubmnviqwtzudnzl/sql/new
+
+create extension if not exists pgcrypto;
 
 -- ========================================
--- جدول المنتجات
+-- Products
+-- The app writes products as JSONB in the `data` column.
 -- ========================================
-CREATE TABLE IF NOT EXISTS bagstore_products (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  price NUMERIC NOT NULL CHECK (price >= 0),
-  sale_price NUMERIC CHECK (sale_price >= 0),
-  stock INTEGER NOT NULL CHECK (stock >= 0),
-  in_stock BOOLEAN DEFAULT TRUE,
-  category TEXT NOT NULL,
-  color TEXT NOT NULL,
-  delivery_info TEXT,
-  images TEXT[] NOT NULL,
-  featured BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+create table if not exists public.bagstore_products (
+  id text primary key,
+  data jsonb not null,
+  updated_at timestamptz not null default now()
 );
 
--- إنشاء فهرس على الفئة
-CREATE INDEX IF NOT EXISTS idx_bagstore_products_category ON bagstore_products(category);
+create index if not exists idx_bagstore_products_updated_at
+  on public.bagstore_products (updated_at desc);
 
--- إنشاء فهرس على المنتجات المميزة
-CREATE INDEX IF NOT EXISTS idx_bagstore_products_featured ON bagstore_products(featured);
+-- Optional migration path from an old column-based schema.
+alter table if exists public.bagstore_products
+  add column if not exists data jsonb;
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'bagstore_products'
+      and column_name = 'name'
+  ) then
+    execute $sql$
+      update public.bagstore_products
+      set data = jsonb_build_object(
+        'id', id,
+        'name', name,
+        'price', price,
+        'salePrice', sale_price,
+        'stock', stock,
+        'inStock', coalesce(in_stock, stock > 0),
+        'category', category,
+        'color', color,
+        'deliveryInfo', delivery_info,
+        'images', coalesce(to_jsonb(images), '[]'::jsonb),
+        'featured', coalesce(featured, false),
+        'createdAt', coalesce(created_at::text, now()::text),
+        'updatedAt', coalesce(updated_at::text, now()::text)
+      )
+      where data is null
+    $sql$;
+  end if;
+end $$;
+
+alter table public.bagstore_products
+  alter column data set not null;
 
 -- ========================================
--- جدول المستخدمين
+-- Store settings
 -- ========================================
-CREATE TABLE IF NOT EXISTS bagstore_users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  username TEXT UNIQUE NOT NULL,
-  email TEXT UNIQUE NOT NULL,
-  password TEXT NOT NULL,
-  name TEXT NOT NULL,
-  role TEXT NOT NULL DEFAULT 'viewer',
-  avatar TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+create table if not exists public.bagstore_settings (
+  key text primary key,
+  data jsonb not null,
+  updated_at timestamptz not null default now()
 );
 
--- إنشاء فهرس على username
-CREATE INDEX IF NOT EXISTS idx_bagstore_users_username ON bagstore_users(username);
-
--- إنشاء فهرس على email
-CREATE INDEX IF NOT EXISTS idx_bagstore_users_email ON bagstore_users(email);
-
 -- ========================================
--- جدول الإعدادات
+-- User activity logs
 -- ========================================
-CREATE TABLE IF NOT EXISTS bagstore_settings (
-  key TEXT PRIMARY KEY,
-  data JSONB NOT NULL,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+create table if not exists public.bagstore_user_logs (
+  id text primary key,
+  data jsonb not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
--- ========================================
--- جدول سجلات نشاط المستخدمين
--- ========================================
-CREATE TABLE IF NOT EXISTS bagstore_user_logs (
-  id TEXT PRIMARY KEY,
-  data JSONB NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- إنشاء فهرس على تاريخ الإنشاء
-CREATE INDEX IF NOT EXISTS idx_bagstore_user_logs_created_at ON bagstore_user_logs(created_at DESC);
+create index if not exists idx_bagstore_user_logs_created_at
+  on public.bagstore_user_logs (created_at desc);
 
 -- ========================================
--- تفعيل Row Level Security
+-- Enable RLS
+-- Policies are managed in the dedicated RLS scripts.
 -- ========================================
-ALTER TABLE bagstore_products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE bagstore_users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE bagstore_settings ENABLE ROW LEVEL SECURITY;
-ALTER TABLE bagstore_user_logs ENABLE ROW LEVEL SECURITY;
+alter table public.bagstore_products enable row level security;
+alter table public.bagstore_settings enable row level security;
+alter table public.bagstore_user_logs enable row level security;
+alter table public.profiles enable row level security;
 
 -- ========================================
--- سياسات الوصول للمنتجات
+-- Helpful seed for settings if missing
 -- ========================================
--- قراءة للجميع
-CREATE POLICY "bagstore_products_read" ON bagstore_products
-  FOR SELECT
-  TO anon, authenticated
-  USING (true);
-
--- كتابة للمستخدمين المصادقين فقط
-CREATE POLICY "bagstore_products_write_auth" ON bagstore_products
-  FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
-
--- ========================================
--- سياسات الوصول للمستخدمين
--- ========================================
--- قراءة للمستخدمين المصادقين فقط
-CREATE POLICY "bagstore_users_read" ON bagstore_users
-  FOR SELECT
-  TO authenticated
-  USING (true);
-
--- كتابة للمستخدمين المصادقين فقط
-CREATE POLICY "bagstore_users_write_auth" ON bagstore_users
-  FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
-
--- ========================================
--- سياسات الوصول للإعدادات
--- ========================================
--- قراءة للجميع
-CREATE POLICY "bagstore_settings_read" ON bagstore_settings
-  FOR SELECT
-  TO anon, authenticated
-  USING (true);
-
--- كتابة للمستخدمين المصادقين فقط
-CREATE POLICY "bagstore_settings_write_auth" ON bagstore_settings
-  FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
-
--- ========================================
--- سياسات الوصول لسجلات النشاط
--- ========================================
--- قراءة للمستخدمين المصادقين فقط
-CREATE POLICY "bagstore_user_logs_read" ON bagstore_user_logs
-  FOR SELECT
-  TO authenticated
-  USING (true);
-
--- كتابة للمستخدمين المصادقين فقط
-CREATE POLICY "bagstore_user_logs_write_auth" ON bagstore_user_logs
-  FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
-
--- ========================================
--- إضافة مستخدم admin
--- ========================================
-INSERT INTO bagstore_users (id, username, email, password, name, role, created_at, updated_at)
-VALUES (
-  gen_random_uuid(),
-  'admin',
-  'admin',
-  'sha256:' || encode(digest('admin', 'sha256'), 'hex'),
-  'مدير النظام',
-  'admin',
-  NOW(),
-  NOW()
+insert into public.bagstore_settings (key, data, updated_at)
+values (
+  'default',
+  jsonb_build_object(
+    'storeName', 'متجر الحقائب',
+    'storeEmail', 'info@bagstore.com',
+    'storePhone', '+9647768397293',
+    'whatsapp', '+9647768397293',
+    'logoUrl', '',
+    'faviconUrl', '',
+    'logoHeightNavbar', 48,
+    'logoHeightFooter', 80,
+    'heroImageUrl', '',
+    'heroImageUrls', '[]'::jsonb,
+    'heroSlideIntervalSec', 5,
+    'facebookUrl', '',
+    'instagramUrl', '',
+    'tiktokUrl', '',
+    'youtubeUrl', '',
+    'footerCategories', jsonb_build_array('حقائب يد', 'حقائب كروس'),
+    'quickLinks', jsonb_build_array(),
+    'cloudinaryCloudName', '',
+    'cloudinaryUploadPreset', '',
+    'cloudinaryApiKey', '',
+    'externalDbEnabled', true,
+    'externalDbProvider', 'supabase',
+    'externalDbUrl', '',
+    'externalDbName', '',
+    'externalDbApiKey', '',
+    'themePrimaryColor', '#d95f1f',
+    'themeAccentColor', '#d95f1f',
+    'themeBackgroundColor', '#ffffff',
+    'themeForegroundColor', '#1a1a1a',
+    'productsPerPage', 12,
+    'currency', 'iqd',
+    'visitorCount', 0,
+    'visitorUniqueCount', 0,
+    'visitorDailyStats', '{}'::jsonb,
+    'visitorMonthlyStats', '{}'::jsonb,
+    'userName', 'admin',
+    'userEmail', 'admin@bagstore.com'
+  ),
+  now()
 )
-ON CONFLICT (username) DO UPDATE SET
-  password = EXCLUDED.password,
-  updated_at = NOW();
-
--- ========================================
--- التحقق من إنشاء الجداول
--- ========================================
-SELECT 'bagstore_products' as table_name, COUNT(*) as record_count FROM bagstore_products
-UNION ALL
-SELECT 'bagstore_users' as table_name, COUNT(*) as record_count FROM bagstore_users
-UNION ALL
-SELECT 'bagstore_settings' as table_name, COUNT(*) as record_count FROM bagstore_settings
-UNION ALL
-SELECT 'bagstore_user_logs' as table_name, COUNT(*) as record_count FROM bagstore_user_logs;
-
--- ========================================
--- التحقق من مستخدم admin
--- ========================================
-SELECT * FROM bagstore_users WHERE username = 'admin';
+on conflict (key) do nothing;

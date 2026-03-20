@@ -1,56 +1,124 @@
--- Production-oriented RLS template for BagStore.
--- Apply after moving write operations to a trusted backend (service role / edge function).
--- This template intentionally blocks direct writes from anonymous clients.
+-- Production RLS template for the current BagStore app schema.
+-- This version keeps public reads and restricts direct writes to staff/admin users.
+-- For stricter production hardening, move writes to Edge Functions or a backend.
 
-alter table if exists bagstore_products enable row level security;
-alter table if exists bagstore_users enable row level security;
-alter table if exists bagstore_settings enable row level security;
-alter table if exists bagstore_user_logs enable row level security;
+alter table public.bagstore_products enable row level security;
+alter table public.bagstore_settings enable row level security;
+alter table public.bagstore_user_logs enable row level security;
+alter table public.profiles enable row level security;
 
-drop policy if exists "bagstore_products_anon_all" on bagstore_products;
-drop policy if exists "bagstore_users_anon_all" on bagstore_users;
-drop policy if exists "bagstore_settings_anon_all" on bagstore_settings;
-drop policy if exists "bagstore_user_logs_anon_all" on bagstore_user_logs;
+drop policy if exists "products_read_public" on public.bagstore_products;
+drop policy if exists "products_write_staff" on public.bagstore_products;
+drop policy if exists "settings_read_public" on public.bagstore_settings;
+drop policy if exists "settings_write_admin" on public.bagstore_settings;
+drop policy if exists "logs_read_admin" on public.bagstore_user_logs;
+drop policy if exists "logs_write_authenticated" on public.bagstore_user_logs;
+drop policy if exists "logs_delete_admin" on public.bagstore_user_logs;
+drop policy if exists "profiles_select_for_authenticated" on public.profiles;
+drop policy if exists "profiles_insert_own_profile" on public.profiles;
+drop policy if exists "profiles_update_own_profile" on public.profiles;
 
--- Public read access only (optional: tighten to authenticated if desired).
-create policy "bagstore_products_read"
-on bagstore_products
+create policy "products_read_public"
+on public.bagstore_products
 for select
 to anon, authenticated
 using (true);
 
-create policy "bagstore_settings_read"
-on bagstore_settings
+create policy "products_write_staff"
+on public.bagstore_products
+for all
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profiles
+    where profiles.id = auth.uid()
+      and profiles.role in ('admin', 'editor')
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.profiles
+    where profiles.id = auth.uid()
+      and profiles.role in ('admin', 'editor')
+  )
+);
+
+create policy "settings_read_public"
+on public.bagstore_settings
 for select
 to anon, authenticated
 using (true);
 
--- Writes are restricted to authenticated users only.
--- Replace `authenticated` with role checks tied to JWT claims in your backend auth model.
-create policy "bagstore_products_write_auth"
-on bagstore_products
+create policy "settings_write_admin"
+on public.bagstore_settings
 for all
 to authenticated
-using (true)
+using (
+  exists (
+    select 1
+    from public.profiles
+    where profiles.id = auth.uid()
+      and profiles.role = 'admin'
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.profiles
+    where profiles.id = auth.uid()
+      and profiles.role = 'admin'
+  )
+);
+
+create policy "logs_read_admin"
+on public.bagstore_user_logs
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.profiles
+    where profiles.id = auth.uid()
+      and profiles.role = 'admin'
+  )
+);
+
+create policy "logs_write_authenticated"
+on public.bagstore_user_logs
+for insert
+to authenticated
 with check (true);
 
-create policy "bagstore_users_write_auth"
-on bagstore_users
-for all
+create policy "logs_delete_admin"
+on public.bagstore_user_logs
+for delete
 to authenticated
-using (true)
-with check (true);
+using (
+  exists (
+    select 1
+    from public.profiles
+    where profiles.id = auth.uid()
+      and profiles.role = 'admin'
+  )
+);
 
-create policy "bagstore_settings_write_auth"
-on bagstore_settings
-for all
+create policy "profiles_select_for_authenticated"
+on public.profiles
+for select
 to authenticated
-using (true)
-with check (true);
+using (true);
 
-create policy "bagstore_user_logs_write_auth"
-on bagstore_user_logs
-for all
+create policy "profiles_insert_own_profile"
+on public.profiles
+for insert
 to authenticated
-using (true)
-with check (true);
+with check (auth.uid() = id);
+
+create policy "profiles_update_own_profile"
+on public.profiles
+for update
+to authenticated
+using (auth.uid() = id)
+with check (auth.uid() = id);

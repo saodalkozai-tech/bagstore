@@ -37,7 +37,7 @@ import {
 } from '@/lib/storage';
 import { uploadImageToCloudinary } from '@/lib/cloudinary';
 import { normalizeStoreSettings } from '@/lib/store-settings-utils';
-import { QuickLinkItem, StoreSettings, User } from '@/types';
+import { StoreSettings, User } from '@/types';
 import { toast } from 'sonner';
 
 const ROLE_LABELS: Record<User['role'], string> = {
@@ -85,39 +85,6 @@ const SETTINGS_SECTION_LABELS: Record<SettingsSection, string> = {
   display: 'إعدادات العرض',
   security: 'الأمان'
 };
-
-const STORE_INFO_FIELDS: Array<{
-  key: keyof StoreSettings;
-  id: string;
-  label: string;
-  type?: React.HTMLInputTypeAttribute;
-  placeholder?: string;
-  description?: string;
-}> = [
-  { key: 'storeName', id: 'storeName', label: 'اسم المتجر' },
-  { key: 'storeEmail', id: 'storeEmail', label: 'البريد الإلكتروني', type: 'email' },
-  { key: 'storePhone', id: 'storePhone', label: 'رقم الهاتف' },
-  {
-    key: 'whatsapp',
-    id: 'whatsapp',
-    label: 'رقم واتساب',
-    description: 'سيتم استخدام هذا الرقم لاستقبال طلبات العملاء'
-  },
-  { key: 'userName', id: 'userName', label: 'اسم المسؤول المعروض' },
-  { key: 'userEmail', id: 'userEmail', label: 'بريد المسؤول', type: 'email' }
-];
-
-const SOCIAL_FIELDS: Array<{
-  key: keyof StoreSettings;
-  id: string;
-  label: string;
-  placeholder: string;
-}> = [
-  { key: 'facebookUrl', id: 'facebookUrl', label: 'رابط فيسبوك', placeholder: 'https://facebook.com/your-page' },
-  { key: 'instagramUrl', id: 'instagramUrl', label: 'رابط انستغرام', placeholder: 'https://instagram.com/your-page' },
-  { key: 'tiktokUrl', id: 'tiktokUrl', label: 'رابط تيك توك', placeholder: 'https://www.tiktok.com/@your-page' },
-  { key: 'youtubeUrl', id: 'youtubeUrl', label: 'رابط يوتيوب', placeholder: 'https://youtube.com/@your-channel' }
-];
 
 const DISPLAY_COLOR_FIELDS: Array<{
   key: keyof StoreSettings;
@@ -200,11 +167,6 @@ export function SettingsPage() {
   };
 
   const handleSave = async () => {
-    if (!settings.whatsapp.trim()) {
-      toast.error('رقم واتساب مطلوب');
-      return;
-    }
-
     if (settings.externalDbEnabled && !settings.externalDbUrl.trim()) {
       toast.error('يرجى إدخال رابط قاعدة البيانات السحابية (Supabase URL)');
       return;
@@ -519,51 +481,6 @@ export function SettingsPage() {
     }));
   };
 
-  const addFooterCategoryRow = () => {
-    setSettings((prev) => ({ ...prev, footerCategories: [...prev.footerCategories, ''] }));
-  };
-
-  const handleFooterCategoryChange = (index: number, value: string) => {
-    setSettings((prev) => ({
-      ...prev,
-      footerCategories: prev.footerCategories.map((category, i) => (i === index ? value : category))
-    }));
-  };
-
-  const removeFooterCategory = (index: number) => {
-    setSettings((prev) => ({
-      ...prev,
-      footerCategories: prev.footerCategories.filter((_, i) => i !== index)
-    }));
-  };
-
-  const addQuickLinkRow = () => {
-    setSettings((prev) => ({
-      ...prev,
-      quickLinks: [...prev.quickLinks, { message: '', label: '', url: '' }]
-    }));
-  };
-
-  const handleQuickLinkChange = (
-    index: number,
-    field: keyof QuickLinkItem,
-    value: string
-  ) => {
-    setSettings((prev) => ({
-      ...prev,
-      quickLinks: prev.quickLinks.map((item, i) =>
-        i === index ? { ...item, [field]: value } : item
-      )
-    }));
-  };
-
-  const removeQuickLink = (index: number) => {
-    setSettings((prev) => ({
-      ...prev,
-      quickLinks: prev.quickLinks.filter((_, i) => i !== index)
-    }));
-  };
-
   return (
     <div className="max-w-6xl space-y-6 overflow-x-hidden">
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -649,35 +566,9 @@ export function SettingsPage() {
       <Card className="border-slate-200 shadow-sm">
         <CardHeader>
           <CardTitle>معلومات المتجر</CardTitle>
-          <CardDescription>مرتب حسب الهوية، الوسائط، التواصل وروابط الواجهة</CardDescription>
+          <CardDescription>الوسائط والهوية البصرية فقط</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="rounded-xl border border-slate-200 p-4">
-            <div className="mb-4">
-              <h3 className="font-semibold text-slate-900">الهوية ومعلومات التواصل</h3>
-              <p className="text-sm text-slate-500">البيانات الأساسية التي تظهر للعملاء وفي لوحة التحكم.</p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              {STORE_INFO_FIELDS.map((field) => (
-                <div key={field.id} className="space-y-2">
-                  <Label htmlFor={field.id}>{field.label}</Label>
-                  <Input
-                    id={field.id}
-                    type={field.type}
-                    value={String(settings[field.key] ?? '')}
-                    placeholder={field.placeholder}
-                    onChange={(e) =>
-                      setSettings((prev) => ({ ...prev, [field.key]: e.target.value }))
-                    }
-                  />
-                  {field.description ? (
-                    <p className="text-xs text-muted-foreground">{field.description}</p>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </div>
-
           <div className="rounded-xl border border-slate-200 p-4">
             <div className="mb-4">
               <h3 className="font-semibold text-slate-900">الهوية البصرية والوسائط</h3>
@@ -796,7 +687,7 @@ export function SettingsPage() {
                   </p>
                 )}
               </div>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="logoHeightNavbar">ارتفاع شعار أعلى الصفحة (px)</Label>
               <Input
@@ -806,18 +697,6 @@ export function SettingsPage() {
                 value={settings.logoHeightNavbar}
                 onChange={(e) =>
                   setSettings((prev) => ({ ...prev, logoHeightNavbar: Number(e.target.value) || 48 }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="logoHeightFooter">ارتفاع شعار الفوتر (px)</Label>
-              <Input
-                id="logoHeightFooter"
-                type="number"
-                min={24}
-                value={settings.logoHeightFooter}
-                onChange={(e) =>
-                  setSettings((prev) => ({ ...prev, logoHeightFooter: Number(e.target.value) || 80 }))
                 }
               />
             </div>
@@ -838,31 +717,6 @@ export function SettingsPage() {
             </div>
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-[1.05fr_1.35fr]">
-            <div className="rounded-xl border border-slate-200 p-4">
-              <div className="mb-4">
-                <h3 className="font-semibold text-slate-900">روابط التواصل الاجتماعي</h3>
-                <p className="text-sm text-slate-500">روابط الظهور الخارجي للمتجر على المنصات الاجتماعية.</p>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
-                {SOCIAL_FIELDS.map((field) => (
-                  <div key={field.id} className="space-y-2">
-                    <Label htmlFor={field.id}>{field.label}</Label>
-                    <Input
-                      id={field.id}
-                      value={String(settings[field.key] ?? '')}
-                      onChange={(e) => setSettings((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                      placeholder={field.placeholder}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              {/* تم إزالة قسم فئات الفوتر والروابط السريعة */}
-            </div>
-          </div>
         </CardContent>
       </Card>
       )}
