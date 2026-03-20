@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
@@ -64,8 +64,10 @@ function hexToHslTriplet(hexColor: string, fallback: string): string {
   return `${hue} ${Math.round(saturation * 100)}% ${Math.round(lightness * 100)}%`;
 }
 
-function App() {
+function AppContent() {
   const settings = useStoreSettings();
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith('/admin');
 
   useEffect(() => {
     const iconHref = settings.faviconUrl.trim() || settings.logoUrl.trim() || '/logo.png';
@@ -113,64 +115,70 @@ function App() {
   }, []);
 
   return (
-    <BrowserRouter>
-      <div className="min-h-screen bg-background flex flex-col">
-        <Navbar />
-        <div className="flex-1 pb-20 sm:pb-0">
-          <Suspense
-            fallback={
-              <div className="flex min-h-[40vh] items-center justify-center text-sm text-slate-500">
-                جاري التحميل...
-              </div>
-            }
-          >
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/" element={<HomePage />} />
-              <Route path="/products" element={<ProductsPage />} />
-              <Route path="/products/:id" element={<ProductDetailPage />} />
-              <Route path="/cart" element={<CartPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              
-              {/* Admin Routes - Protected */}
-              <Route path="/admin" element={
-                <ProtectedRoute>
-                  <AdminLayout />
-                </ProtectedRoute>
-              }>
-                <Route
-                  index
-                  element={
-                    <ProtectedRoute allowedRoles={['admin', 'editor', 'viewer']}>
-                      <DashboardPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="products"
-                  element={
-                    <ProtectedRoute allowedRoles={['admin', 'editor']}>
-                      <ProductsManagePage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="settings"
-                  element={
-                    <ProtectedRoute allowedRoles={['admin']}>
-                      <SettingsPage />
-                    </ProtectedRoute>
-                  }
-                />
-              </Route>
+    <div className="min-h-screen bg-background flex flex-col">
+      <Navbar />
+      <div className="flex-1 pb-20 sm:pb-0">
+        <Suspense
+          fallback={
+            <div className="flex min-h-[40vh] items-center justify-center text-sm text-slate-500">
+              جاري التحميل...
+            </div>
+          }
+        >
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<HomePage />} />
+            <Route path="/products" element={<ProductsPage />} />
+            <Route path="/products/:id" element={<ProductDetailPage />} />
+            <Route path="/cart" element={<CartPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            
+            {/* Admin Routes - Protected */}
+            <Route path="/admin" element={
+              <ProtectedRoute>
+                <AdminLayout />
+              </ProtectedRoute>
+            }>
+              <Route
+                index
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'editor', 'viewer']}>
+                    <DashboardPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="products"
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'editor']}>
+                    <ProductsManagePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="settings"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <SettingsPage />
+                  </ProtectedRoute>
+                }
+              />
+            </Route>
 
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </div>
-        <Footer />
-        <Toaster position="top-center" richColors />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </div>
+      {!isAdminRoute && <Footer />}
+      <Toaster position="top-center" richColors />
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppContent />
     </BrowserRouter>
   );
 }
