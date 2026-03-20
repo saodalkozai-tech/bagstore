@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addToCart,
   clearCart,
@@ -29,19 +29,23 @@ vi.mock("@/lib/storage", () => ({
 }));
 
 describe("cart helpers", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it("adds and counts items", () => {
-    addToCart("p1", 2);
-    addToCart("p1", 1);
+    expect(addToCart("p1", 2).success).toBe(true);
+    expect(addToCart("p1", 1).success).toBe(true);
     expect(getCartCount()).toBe(3);
     expect(getCartItems()).toEqual([{ productId: "p1", quantity: 3 }]);
   });
 
   it("updates quantity and removes when set to zero", () => {
     addToCart("p1", 2);
-    updateCartItemQuantity("p1", 5);
+    expect(updateCartItemQuantity("p1", 5).success).toBe(true);
     expect(getCartItems()[0].quantity).toBe(5);
 
-    updateCartItemQuantity("p1", 0);
+    expect(updateCartItemQuantity("p1", 0).success).toBe(true);
     expect(getCartItems()).toEqual([]);
   });
 
@@ -58,5 +62,14 @@ describe("cart helpers", () => {
     addToCart("p1", 1);
     clearCart();
     expect(getCartItems()).toEqual([]);
+  });
+
+  it("caps quantities at available stock", () => {
+    expect(addToCart("p1", 10).success).toBe(true);
+
+    const result = addToCart("p1", 2);
+    expect(result.success).toBe(false);
+    expect(result.reason).toBe("exceeds_stock");
+    expect(getCartItems()).toEqual([{ productId: "p1", quantity: 10 }]);
   });
 });

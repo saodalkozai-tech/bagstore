@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -35,7 +35,6 @@ import {
   updateAdminUserPassword,
   updatePassword
 } from '@/lib/storage';
-import { isFirebaseAuthEnabled } from '@/lib/firebase-auth';
 import { uploadImageToCloudinary } from '@/lib/cloudinary';
 import { normalizeStoreSettings } from '@/lib/store-settings-utils';
 import { QuickLinkItem, StoreSettings, User } from '@/types';
@@ -133,10 +132,9 @@ const DISPLAY_COLOR_FIELDS: Array<{
 ];
 
 export function SettingsPage() {
-  const firebaseAuthEnabled = isFirebaseAuthEnabled();
   const initialSettings = useMemo(() => getStoreSettings(), []);
   const [settings, setSettings] = useState<StoreSettings>(initialSettings);
-  const [users, setUsers] = useState<User[]>(() => getAdminUsers());
+  const [users, setUsers] = useState<User[]>([]);
   const [newUser, setNewUser] = useState(DEFAULT_NEW_USER);
   const [passwordDrafts, setPasswordDrafts] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
@@ -156,6 +154,7 @@ export function SettingsPage() {
     settings.externalDbUrl.trim() && settings.externalDbApiKey.trim()
   );
   const [activeSection, setActiveSection] = useState<SettingsSection>('store');
+  const canManageUsersInApp = false;
   const readySectionCount = SETTINGS_SECTIONS.length;
   const syncStatusLabel = settings.externalDbEnabled
     ? isExternalDbConfigReady
@@ -163,9 +162,17 @@ export function SettingsPage() {
       : 'تحتاج إكمال الربط'
     : 'محلي فقط';
 
-  const refreshUsers = () => {
-    setUsers(getAdminUsers());
-  };
+  const refreshUsers = useCallback(async () => {
+    try {
+      setUsers(await getAdminUsers());
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'تعذر تحميل المستخدمين من Supabase');
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshUsers();
+  }, [refreshUsers]);
 
   const buildNormalizedSettings = () =>
     normalizeStoreSettings(settings, {
@@ -306,11 +313,7 @@ export function SettingsPage() {
     }
   };
 
-  const handlePasswordChange = () => {
-    if (firebaseAuthEnabled) {
-      toast.info('عند تفعيل Firebase، يتم تغيير كلمات المرور من Firebase Authentication.');
-      return;
-    }
+  const handlePasswordChange = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast.error('يرجى تعبئة جميع حقول كلمة المرور');
       return;
@@ -326,7 +329,7 @@ export function SettingsPage() {
       return;
     }
 
-    const success = updatePassword(currentPassword, newPassword);
+    const success = await updatePassword(currentPassword, newPassword);
     if (!success) {
       toast.error('كلمة المرور الحالية غير صحيحة');
       return;
@@ -338,19 +341,15 @@ export function SettingsPage() {
     toast.success('تم تغيير كلمة المرور بنجاح');
   };
 
-  const handleAddUser = () => {
-    if (firebaseAuthEnabled) {
-      toast.info('عند تفعيل Firebase، تتم إدارة المستخدمين من Firebase Console.');
-      return;
-    }
-    const result = createAdminUser(newUser);
+  const handleAddUser = async () => {
+    const result = await createAdminUser(newUser);
     if (!result.success) {
       toast.error(result.message);
       return;
     }
 
     setNewUser(DEFAULT_NEW_USER);
-    refreshUsers();
+    await refreshUsers();
     toast.success(result.message);
   };
 
@@ -360,15 +359,11 @@ export function SettingsPage() {
     );
   };
 
-  const handleSaveUser = (id: string) => {
-    if (firebaseAuthEnabled) {
-      toast.info('عند تفعيل Firebase، تتم إدارة المستخدمين من Firebase Console.');
-      return;
-    }
+  const handleSaveUser = async (id: string) => {
     const targetUser = users.find((user) => user.id === id);
     if (!targetUser) return;
 
-    const result = updateAdminUser(id, {
+    const result = await updateAdminUser(id, {
       name: targetUser.name,
       username: targetUser.username,
       email: targetUser.email,
@@ -380,32 +375,24 @@ export function SettingsPage() {
       return;
     }
 
-    refreshUsers();
+    await refreshUsers();
     toast.success(result.message);
   };
 
-  const handleDeleteUser = (id: string) => {
-    if (firebaseAuthEnabled) {
-      toast.info('عند تفعيل Firebase، تتم إدارة المستخدمين من Firebase Console.');
-      return;
-    }
-    const result = removeAdminUser(id);
+  const handleDeleteUser = async (id: string) => {
+    const result = await removeAdminUser(id);
     if (!result.success) {
       toast.error(result.message);
       return;
     }
 
-    refreshUsers();
+    await refreshUsers();
     toast.success(result.message);
   };
 
-  const handleUserPasswordUpdate = (id: string) => {
-    if (firebaseAuthEnabled) {
-      toast.info('عند تفعيل Firebase، يتم تعديل كلمات المرور من Firebase Authentication.');
-      return;
-    }
+  const handleUserPasswordUpdate = async (id: string) => {
     const nextPassword = passwordDrafts[id] || '';
-    const result = updateAdminUserPassword(id, nextPassword);
+    const result = await updateAdminUserPassword(id, nextPassword);
     if (!result.success) {
       toast.error(result.message);
       return;
@@ -415,9 +402,9 @@ export function SettingsPage() {
     toast.success(result.message);
   };
 
-  const resetChanges = () => {
+  const resetChanges = async () => {
     setSettings(getStoreSettings());
-    setUsers(getAdminUsers());
+    await refreshUsers();
     setNewUser(DEFAULT_NEW_USER);
     setPasswordDrafts({});
     toast.success('تم التراجع عن التعديلات');
@@ -600,7 +587,7 @@ export function SettingsPage() {
               <div className="rounded-2xl border border-white/80 bg-white/90 px-4 py-3 backdrop-blur">
                 <p className="text-xs font-semibold text-slate-500">المستخدمون</p>
                 <p className="mt-1 text-lg font-bold text-slate-900">
-                  {firebaseAuthEnabled ? 'Firebase' : `${users.length} محلي`}
+                  {`${users.length} من Supabase`}
                 </p>
               </div>
             </div>
@@ -951,7 +938,7 @@ export function SettingsPage() {
                   <div className="space-y-1">
                     <p className="font-medium">تفعيل قاعدة بيانات خارجية</p>
                     <p className="text-xs text-muted-foreground">
-                      عند التفعيل سيتم مزامنة المنتجات والإعدادات والسجل فقط. مستخدمو الإدارة يبقون محليين أو عبر Firebase.
+                      عند التفعيل سيتم مزامنة المنتجات والإعدادات والسجل فقط. مستخدمو الإدارة يبقون محليين أو داخل Supabase Auth.
                     </p>
                   </div>
                   <Switch
@@ -975,9 +962,6 @@ export function SettingsPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="supabase">Supabase</SelectItem>
-                        <SelectItem value="firebase">Firebase</SelectItem>
-                        <SelectItem value="mongodb">MongoDB Atlas</SelectItem>
-                        <SelectItem value="custom">Custom API</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
@@ -1070,7 +1054,7 @@ export function SettingsPage() {
                 </div>
                 <div className="rounded-lg border bg-white p-3">
                   <p className="font-medium text-slate-900">ما الذي لا تتم مزامنته؟</p>
-                  <p className="mt-1">مستخدمو لوحة التحكم يبقون محليين أو عبر Firebase ولا يُرفعون إلى Supabase.</p>
+                  <p className="mt-1">مستخدمو لوحة التحكم يبقون محليين أو داخل Supabase Auth ولا يُرفعون ضمن بيانات المزامنة.</p>
                 </div>
                 <div className="rounded-lg border bg-white p-3">
                   <p className="font-medium text-slate-900">أفضل إجراء عند التعديل</p>
@@ -1093,22 +1077,15 @@ export function SettingsPage() {
           <CardDescription>إضافة، تعديل، حذف المستخدمين وتعيين الصلاحيات</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {!firebaseAuthEnabled && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-              يتم حفظ مستخدمي لوحة التحكم محليًا فقط في هذا الوضع، ولا تتم مزامنتهم إلى Supabase لحماية بيانات الدخول.
-            </div>
-          )}
-          {firebaseAuthEnabled && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-              تمت إدارة المستخدمين عبر Firebase Authentication. إضافة/تعديل/حذف المستخدمين تتم من Firebase Console.
-            </div>
-          )}
+          <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-700">
+            المشروع يعمل الآن بوضع Supabase-only. عرض المستخدمين يأتي من جدول <code>profiles</code>، بينما إنشاء المستخدمين وحذفهم وتغيير كلمات مرورهم يتم من Supabase Authentication Dashboard.
+          </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <Input
               placeholder="الاسم"
               value={newUser.name}
               onChange={(e) => setNewUser((prev) => ({ ...prev, name: e.target.value }))}
-              disabled={firebaseAuthEnabled}
+              disabled={!canManageUsersInApp}
               aria-label="اسم المستخدم الجديد"
               title="اسم المستخدم الجديد"
             />
@@ -1116,7 +1093,7 @@ export function SettingsPage() {
               placeholder="اسم المستخدم"
               value={newUser.username}
               onChange={(e) => setNewUser((prev) => ({ ...prev, username: e.target.value }))}
-              disabled={firebaseAuthEnabled}
+              disabled={!canManageUsersInApp}
               aria-label="اسم المستخدم الجديد"
               title="اسم المستخدم الجديد"
             />
@@ -1125,14 +1102,14 @@ export function SettingsPage() {
               type="email"
               value={newUser.email}
               onChange={(e) => setNewUser((prev) => ({ ...prev, email: e.target.value }))}
-              disabled={firebaseAuthEnabled}
+              disabled={!canManageUsersInApp}
               aria-label="البريد الإلكتروني للمستخدم الجديد"
               title="البريد الإلكتروني للمستخدم الجديد"
             />
             <Select
               value={newUser.role}
               onValueChange={(value: User['role']) => setNewUser((prev) => ({ ...prev, role: value }))}
-              disabled={firebaseAuthEnabled}
+              disabled={!canManageUsersInApp}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -1148,12 +1125,12 @@ export function SettingsPage() {
               type="password"
               value={newUser.password}
               onChange={(e) => setNewUser((prev) => ({ ...prev, password: e.target.value }))}
-              disabled={firebaseAuthEnabled}
+              disabled={!canManageUsersInApp}
               aria-label="كلمة مرور المستخدم الجديد"
               title="كلمة مرور المستخدم الجديد"
             />
           </div>
-          <Button type="button" onClick={handleAddUser} disabled={firebaseAuthEnabled} className="w-full sm:w-auto">
+          <Button type="button" onClick={handleAddUser} disabled={!canManageUsersInApp} className="w-full sm:w-auto">
             <Plus className="w-4 h-4 ml-2" />
             إضافة مستخدم
           </Button>
@@ -1168,24 +1145,24 @@ export function SettingsPage() {
                     value={user.name}
                     onChange={(e) => handleUserFieldChange(user.id, 'name', e.target.value)}
                     placeholder="الاسم"
-                    disabled={firebaseAuthEnabled}
+                    disabled={!canManageUsersInApp}
                   />
                   <Input
                     value={user.username}
                     onChange={(e) => handleUserFieldChange(user.id, 'username', e.target.value)}
                     placeholder="اسم المستخدم"
-                    disabled={firebaseAuthEnabled}
+                    disabled={!canManageUsersInApp}
                   />
                   <Input
                     value={user.email}
                     onChange={(e) => handleUserFieldChange(user.id, 'email', e.target.value)}
                     placeholder="البريد الإلكتروني"
-                    disabled={firebaseAuthEnabled}
+                    disabled={!canManageUsersInApp}
                   />
                   <Select
                     value={user.role}
                     onValueChange={(value: User['role']) => handleUserFieldChange(user.id, 'role', value)}
-                    disabled={firebaseAuthEnabled}
+                    disabled={!canManageUsersInApp}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -1206,16 +1183,16 @@ export function SettingsPage() {
                     onChange={(e) =>
                       setPasswordDrafts((prev) => ({ ...prev, [user.id]: e.target.value }))
                     }
-                    disabled={firebaseAuthEnabled}
+                    disabled={!canManageUsersInApp}
                   />
-                  <Button type="button" variant="outline" onClick={() => handleUserPasswordUpdate(user.id)} disabled={firebaseAuthEnabled} className="w-full">
+                  <Button type="button" variant="outline" onClick={() => handleUserPasswordUpdate(user.id)} disabled={!canManageUsersInApp} className="w-full">
                     تغيير كلمة المرور
                   </Button>
-                  <Button type="button" variant="secondary" onClick={() => handleSaveUser(user.id)} disabled={firebaseAuthEnabled} className="w-full">
+                  <Button type="button" variant="secondary" onClick={() => handleSaveUser(user.id)} disabled={!canManageUsersInApp} className="w-full">
                     <Save className="w-4 h-4 ml-2" />
                     حفظ
                   </Button>
-                  <Button type="button" variant="destructive" onClick={() => handleDeleteUser(user.id)} disabled={firebaseAuthEnabled} className="w-full">
+                  <Button type="button" variant="destructive" onClick={() => handleDeleteUser(user.id)} disabled={!canManageUsersInApp} className="w-full">
                     <Trash2 className="w-4 h-4 ml-2" />
                     حذف
                   </Button>
@@ -1317,11 +1294,9 @@ export function SettingsPage() {
           <CardDescription>تغيير كلمة المرور وإعدادات الأمان</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {firebaseAuthEnabled && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-              تم تفعيل Firebase Authentication. تغيير كلمة المرور يتم من Firebase مباشرة.
-            </div>
-          )}
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            تغيير كلمة مرور حسابك الحالي يتم مباشرة عبر Supabase Auth.
+          </div>
           <div className="space-y-2">
             <Label htmlFor="currentPassword">كلمة المرور الحالية</Label>
             <div className="relative">
@@ -1332,7 +1307,7 @@ export function SettingsPage() {
                 className="pl-10"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                disabled={firebaseAuthEnabled}
+                disabled={false}
               />
               <Button
                 type="button"
@@ -1340,7 +1315,7 @@ export function SettingsPage() {
                 size="sm"
                 className="absolute left-0 top-0 h-full px-3 hover:bg-transparent"
                 onClick={() => setShowPassword(!showPassword)}
-                disabled={firebaseAuthEnabled}
+                disabled={false}
                 aria-label={showPassword ? 'إخفاء كلمة المرور الحالية' : 'إظهار كلمة المرور الحالية'}
               >
                 {showPassword ? (
@@ -1361,7 +1336,7 @@ export function SettingsPage() {
                 className="pl-10"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                disabled={firebaseAuthEnabled}
+                disabled={false}
               />
               <Button
                 type="button"
@@ -1369,7 +1344,7 @@ export function SettingsPage() {
                 size="sm"
                 className="absolute left-0 top-0 h-full px-3 hover:bg-transparent"
                 onClick={() => setShowNewPassword(!showNewPassword)}
-                disabled={firebaseAuthEnabled}
+                disabled={false}
                 aria-label={showNewPassword ? 'إخفاء كلمة المرور الجديدة' : 'إظهار كلمة المرور الجديدة'}
               >
                 {showNewPassword ? (
@@ -1388,11 +1363,11 @@ export function SettingsPage() {
               placeholder="أعد إدخال كلمة المرور الجديدة"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              disabled={firebaseAuthEnabled}
+              disabled={false}
             />
           </div>
           <Separator />
-          <Button onClick={handlePasswordChange} variant="outline" disabled={firebaseAuthEnabled}>
+          <Button onClick={handlePasswordChange} variant="outline">
             تغيير كلمة المرور
           </Button>
         </CardContent>

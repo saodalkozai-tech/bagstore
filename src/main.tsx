@@ -4,8 +4,7 @@ import './index.css'
 import {
   hydrateAuthSession,
   initializeStorage,
-  refreshProductsFromSupabase,
-  syncLocalDataToSupabase
+  refreshProductsFromSupabase
 } from './lib/storage.ts'
 
 const root = createRoot(document.getElementById("root")!);
@@ -22,7 +21,6 @@ async function bootstrap() {
     await hydrateAuthSession();
     await initializeStorage();
     await refreshProductsFromSupabase();
-    await syncLocalDataToSupabase();
   } catch (error) {
     console.error('Application bootstrap failed. Falling back to local mode:', error);
   } finally {

@@ -61,6 +61,16 @@ export function CartPage() {
     window.open(link, '_blank', 'noopener,noreferrer');
   };
 
+  const handleQuantityChange = (productId: string, nextQuantity: number) => {
+    const result = updateItemQuantity(productId, nextQuantity);
+    if (!result.success && result.reason === 'exceeds_stock') {
+      toast.info(`تم ضبط الكمية على الحد المتاح (${result.availableStock ?? result.quantity ?? 0})`);
+    }
+    if (!result.success && result.reason === 'out_of_stock') {
+      toast.error('هذا المنتج لم يعد متوفرًا في المخزون');
+    }
+  };
+
   if (lines.length === 0) {
     return (
       <div className="container mx-auto px-4 py-14 text-center md:py-16">
@@ -101,7 +111,7 @@ export function CartPage() {
                           variant="ghost"
                           size="sm"
                           className="rounded-none"
-                          onClick={() => updateItemQuantity(line.product.id, line.quantity - 1)}
+                          onClick={() => handleQuantityChange(line.product.id, line.quantity - 1)}
                         >
                           <Minus className="w-4 h-4" />
                         </Button>
@@ -110,7 +120,7 @@ export function CartPage() {
                           variant="ghost"
                           size="sm"
                           className="rounded-none"
-                          onClick={() => updateItemQuantity(line.product.id, line.quantity + 1)}
+                          onClick={() => handleQuantityChange(line.product.id, line.quantity + 1)}
                         >
                           <Plus className="w-4 h-4" />
                         </Button>

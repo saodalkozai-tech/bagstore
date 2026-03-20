@@ -1,5 +1,5 @@
 export type UserRole = 'admin' | 'editor' | 'viewer';
-export type ExternalDbProvider = 'supabase' | 'firebase' | 'mongodb' | 'custom';
+export type ExternalDbProvider = 'supabase';
 
 export interface Product {
   id: string;

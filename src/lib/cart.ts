@@ -11,6 +11,13 @@ type CartLine = {
   lineTotal: number;
 };
 
+export type CartMutationResult = {
+  success: boolean;
+  quantity?: number;
+  availableStock?: number;
+  reason?: 'not_found' | 'out_of_stock' | 'exceeds_stock';
+};
+
 function readCart(): CartItem[] {
   try {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
@@ -42,37 +49,87 @@ export function getCartCount(): number {
   return readCart().reduce((sum, item) => sum + item.quantity, 0);
 }
 
-export function addToCart(productId: string, quantity = 1): void {
+function getProductStock(productId: string): number | null {
+  const product = getProducts().find((item) => item.id === productId);
+  if (!product) return null;
+  return Math.max(0, Math.floor(product.stock));
+}
+
+export function addToCart(productId: string, quantity = 1): CartMutationResult {
   const nextQty = Math.max(1, quantity);
   const items = readCart();
   const index = items.findIndex((item) => item.productId === productId);
+  const availableStock = getProductStock(productId);
+
+  if (availableStock === null) {
+    return { success: false, reason: 'not_found' };
+  }
+
+  if (availableStock <= 0) {
+    return { success: false, reason: 'out_of_stock', availableStock: 0 };
+  }
+
+  const currentQty = index >= 0 ? items[index].quantity : 0;
+  const finalQty = Math.min(availableStock, currentQty + nextQty);
+
+  if (finalQty <= currentQty) {
+    return {
+      success: false,
+      reason: 'exceeds_stock',
+      quantity: currentQty,
+      availableStock
+    };
+  }
 
   if (index >= 0) {
     items[index] = {
       ...items[index],
-      quantity: items[index].quantity + nextQty
+      quantity: finalQty
     };
   } else {
-    items.push({ productId, quantity: nextQty });
+    items.push({ productId, quantity: finalQty });
   }
 
   writeCart(items);
+  return { success: true, quantity: finalQty, availableStock };
 }
 
-export function updateCartItemQuantity(productId: string, quantity: number): void {
+export function updateCartItemQuantity(productId: string, quantity: number): CartMutationResult {
   const items = readCart();
   const nextQty = Math.max(0, Math.floor(quantity));
   const index = items.findIndex((item) => item.productId === productId);
-  if (index < 0) return;
+  if (index < 0) return { success: false, reason: 'not_found' };
 
   if (nextQty === 0) {
     const filtered = items.filter((item) => item.productId !== productId);
     writeCart(filtered);
-    return;
+    return { success: true, quantity: 0, availableStock: getProductStock(productId) ?? 0 };
   }
 
-  items[index] = { ...items[index], quantity: nextQty };
+  const availableStock = getProductStock(productId);
+  if (availableStock === null) {
+    return { success: false, reason: 'not_found' };
+  }
+
+  if (availableStock <= 0) {
+    return { success: false, reason: 'out_of_stock', availableStock: 0 };
+  }
+
+  const finalQty = Math.min(nextQty, availableStock);
+  if (finalQty < nextQty) {
+    items[index] = { ...items[index], quantity: finalQty };
+    writeCart(items);
+    return {
+      success: false,
+      reason: 'exceeds_stock',
+      quantity: finalQty,
+      availableStock
+    };
+  }
+
+  items[index] = { ...items[index], quantity: finalQty };
   writeCart(items);
+  return { success: true, quantity: finalQty, availableStock };
 }
 
 export function removeFromCart(productId: string): void {

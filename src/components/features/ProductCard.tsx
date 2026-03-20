@@ -20,7 +20,16 @@ export function ProductCard({ product }: ProductCardProps) {
   const [isImageOpen, setIsImageOpen] = useState(false);
 
   const handleAddToCart = () => {
-    addToCart(product.id, 1);
+    const result = addToCart(product.id, 1);
+    if (!result.success) {
+      toast.error(
+        result.reason === 'out_of_stock'
+          ? 'المنتج غير متوفر حاليًا'
+          : `لا يمكن تجاوز المخزون المتاح (${result.availableStock ?? product.stock})`
+      );
+      return;
+    }
+
     toast.success('تمت إضافة المنتج إلى السلة');
   };
 

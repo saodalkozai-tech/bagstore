@@ -25,10 +25,9 @@
 ## Checklist سريع للنشر والتحديث
 
 - [x] تشغيل البناء محليًا: `npm run build`
-- [ ] رفع آخر التعديلات: `git add . && git commit -m "chore: update" && git push origin master`
-- [ ] نشر Firebase يدويًا: `firebase deploy --only hosting`
-- [ ] التأكد من فتح الموقع: `https://hr-accessories.web.app`
+- [ ] رفع آخر التعديلات: `git add . && git commit -m "chore: update" && git push origin main`
+- [ ] نشر Firebase Hosting بعد مراجعة الإعدادات
+- [ ] التأكد من فتح الرابط النهائي بعد النشر
 - [ ] فحص الصفحة الرئيسية + تسجيل الدخول + لوحة التحكم + 404
 - [ ] التأكد من GitHub Actions تعمل بدون أخطاء
-- [ ] تدوير Service Account Key عند أي تسريب
-- [ ] تحديث Secret في GitHub باسم `FIREBASE_SERVICE_ACCOUNT_HR_ACCESSORIES`
+- [ ] التأكد من وجود `FIREBASE_SERVICE_ACCOUNT` في GitHub Secrets

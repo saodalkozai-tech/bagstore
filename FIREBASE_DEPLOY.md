@@ -1,58 +1,26 @@
-# تعليمات النشر على Firebase
+# Firebase Deploy
 
-## المتطلبات الأساسية
-1. تأكد من تثبيت Node.js على جهازك
-2. حساب على Firebase (firebase.google.com)
+## GitHub Secret
 
-## خطوات النشر
+أضف السر التالي داخل GitHub Actions Secrets:
+- `FIREBASE_SERVICE_ACCOUNT`
 
-### 1. تثبيت Firebase CLI
+القيمة يجب أن تكون JSON كامل لمفتاح Service Account من Firebase/Google Cloud.
+
+## Workflow
+
+الملف المسؤول عن النشر:
+- [.github/workflows/firebase-hosting-deploy.yml](/c:/Users/PC/Desktop/project/BagStore-main/BagStore-main/.github/workflows/firebase-hosting-deploy.yml)
+
+## Firebase Files
+
+- [firebase.json](/c:/Users/PC/Desktop/project/BagStore-main/BagStore-main/firebase.json)
+- [.firebaserc](/c:/Users/PC/Desktop/project/BagStore-main/BagStore-main/.firebaserc)
+
+## Before Deploy
+
 ```bash
-npm install -g firebase-tools
-```
-
-### 2. تسجيل الدخول إلى Firebase
-```bash
-firebase login
-```
-
-### 3. بناء المشروع
-```bash
+npm run check
+npm test
 npm run build
 ```
-
-### 4. تهيئة Firebase (إذا لم تكن قد فعلت ذلك)
-```bash
-firebase init
-```
-اختر:
-- Hosting
-- استخدم ملف firebase.json الموجود
-- المجلد العام: dist
-
-### 5. النشر
-```bash
-firebase deploy
-```
-
-## أوامر مفيدة
-
-### النشر مع معاينة
-```bash
-firebase hosting:channel:deploy preview
-```
-
-### عرض السجلات
-```bash
-firebase hosting:log
-```
-
-### حذف النشر السابق
-```bash
-firebase hosting:disable
-```
-
-## ملاحظات هامة
-- تأكد من أن ملف firebase.json محدث قبل النشر
-- تأكد من أن ملف .firebaserc يحتوي على معرف المشروع الصحيح
-- راجع سجلات النشر للتأكد من نجاح العملية

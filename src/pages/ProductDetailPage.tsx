@@ -1,22 +1,35 @@
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowRight, ShoppingCart, Check, Package, Truck, Tag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { getProductById } from '@/lib/storage';
 import { formatPrice, getWhatsAppLink, calculateDiscount } from '@/lib/utils';
 import { useCart } from '@/hooks/use-cart';
+import { useProducts } from '@/hooks/use-products';
 import { toast } from 'sonner';
 
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const product = id ? getProductById(id) : null;
+  const products = useProducts();
+  const product = useMemo(
+    () => (id ? products.find((item) => item.id === id) || null : null),
+    [id, products]
+  );
   const [selectedImage, setSelectedImage] = useState(0);
   const [isImageOpen, setIsImageOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const { addToCart } = useCart();
+
+  useEffect(() => {
+    setSelectedImage(0);
+  }, [product?.id]);
+
+  useEffect(() => {
+    if (!product) return;
+    setQuantity((prev) => Math.min(Math.max(1, prev), Math.max(1, product.stock)));
+  }, [product]);
 
   if (!product) {
     return (
@@ -32,7 +45,16 @@ export function ProductDetailPage() {
   const discount = calculateDiscount(product.price, product.salePrice);
 
   const handleAddToCart = () => {
-    addToCart(product.id, quantity);
+    const result = addToCart(product.id, quantity);
+    if (!result.success) {
+      toast.error(
+        result.reason === 'out_of_stock'
+          ? 'المنتج غير متوفر حاليًا'
+          : `المخزون المتاح حاليًا هو ${result.availableStock ?? product.stock} فقط`
+      );
+      return;
+    }
+
     toast.success('تمت إضافة المنتج إلى السلة');
   };
 
@@ -175,7 +197,13 @@ export function ProductDetailPage() {
                   variant="ghost"
                   size="sm"
                   className="rounded-none"
-                  onClick={() => setQuantity((prev) => prev + 1)}
+                  onClick={() => {
+                    if (quantity >= product.stock) {
+                      toast.info(`الحد الأقصى المتاح هو ${product.stock}`);
+                      return;
+                    }
+                    setQuantity((prev) => Math.min(product.stock, prev + 1));
+                  }}
                 >
                   +
                 </Button>

@@ -1,62 +1,43 @@
 import { Product, StoreSettings, User, UserActivityLog } from '@/types';
-import { MOCK_PRODUCTS, MOCK_USER } from './mockData';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import SHA256 from 'crypto-js/sha256';
-import Hex from 'crypto-js/enc-hex';
 import {
-  getFirebaseCurrentSession,
-  isFirebaseAuthEnabled,
-  signInWithFirebase,
-  signOutFirebase
-} from './firebase-auth';
-import { firebaseSessionToUser } from './auth-session-utils';
+  CLOUD_SETTINGS_KEY,
+  CLOUD_SYNC_ERROR_EVENT,
+  CLOUD_TABLES,
+  createDefaultSettings,
+  createNormalizedSettingsForSave,
+  DEFAULT_SETTINGS,
+  DEFAULT_USERS,
+  formatSupabaseError,
+  getSessionStorageSafe,
+  getSupabaseClient,
+  isExternalSupabaseEnabled,
+  LOGIN_LOCKOUT_MS,
+  LoginGuardState,
+  MAX_LOGIN_ATTEMPTS,
+  MAX_USER_LOGS,
+  MOCK_PRODUCTS,
+  normalizeStoredProduct,
+  nowMs,
+  PRODUCTS_UPDATED_EVENT,
+  safeParse,
+  SessionMeta,
+  SESSION_IDLE_TIMEOUT_MS,
+  SESSION_MAX_DURATION_MS,
+  STORAGE_KEYS,
+  toSafeCounterRecord,
+  pruneVisitorDayStats,
+  pruneVisitorMonthStats,
+  UserMutationResult,
+} from './storage-core';
 import {
-  DEFAULT_DEMO_CREDENTIALS,
-  DEFAULT_THEME_ACCENT,
-  DEFAULT_THEME_BACKGROUND,
-  DEFAULT_THEME_FOREGROUND,
-  DEFAULT_THEME_PRIMARY
-} from './storage-defaults';
-import { normalizeHexColor, normalizeStoreSettings } from './store-settings-utils';
+  getSupabaseSessionUser,
+  listSupabaseUsers,
+  loginWithSupabase,
+  logoutFromSupabase,
+  updateCurrentUserPasswordWithSupabase
+} from './supabase-auth';
 
-const STORAGE_KEYS = {
-  PRODUCTS: 'bagstore_products',
-  USER: 'bagstore_user',
-  AUTH: 'bagstore_auth',
-  USERS: 'bagstore_users',
-  SETTINGS: 'bagstore_settings',
-  SESSION: 'bagstore_session',
-  USER_LOGS: 'bagstore_user_logs',
-  SESSION_META: 'bagstore_session_meta',
-  LOGIN_GUARD: 'bagstore_login_guard',
-  VISITOR_TRACKED: 'bagstore_visitor_tracked',
-  UNIQUE_VISITOR_TRACKED: 'bagstore_unique_visitor_tracked'
-};
-const MAX_USER_LOGS = 300;
-const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
-const SESSION_MAX_DURATION_MS = 8 * 60 * 60 * 1000; // 8 hours
-const MAX_LOGIN_ATTEMPTS = 5;
-const LOGIN_LOCKOUT_MS = 10 * 60 * 1000; // 10 minutes
-
-const DEFAULT_CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '';
-const DEFAULT_CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
-const DEFAULT_CLOUDINARY_API_KEY = import.meta.env.VITE_CLOUDINARY_API_KEY || '';
-const DEFAULT_EXTERNAL_DB_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const DEFAULT_EXTERNAL_DB_API_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-const DEFAULT_EXTERNAL_DB_NAME = import.meta.env.VITE_SUPABASE_DB_NAME || '';
-
-if (import.meta.env.DEV) {
-  if (!DEFAULT_EXTERNAL_DB_URL) console.warn('🚨 Supabase URL missing. Set VITE_SUPABASE_URL in .env.local');
-  if (!DEFAULT_EXTERNAL_DB_API_KEY) console.warn('🚨 Supabase key missing. Set VITE_SUPABASE_ANON_KEY');
-}
-const CLOUD_TABLES = {
-  PRODUCTS: 'bagstore_products',
-  SETTINGS: 'bagstore_settings',
-  USER_LOGS: 'bagstore_user_logs'
-} as const;
-const CLOUD_SETTINGS_KEY = 'default';
-export const CLOUD_SYNC_ERROR_EVENT = 'bagstore:cloud-sync-error';
-export const PRODUCTS_UPDATED_EVENT = 'bagstore:products-updated';
+export { CLOUD_SYNC_ERROR_EVENT, PRODUCTS_UPDATED_EVENT } from './storage-core';
 
 /**
  * تفريغ جميع البيانات المحلية من التخزين المحلي
@@ -82,179 +63,6 @@ export function clearAllLocalStorage(): void {
   } catch (error) {
     console.error('خطأ في تفريغ قاعدة البيانات المحلية:', error);
     return { success: false, message: 'فشل تفريغ قاعدة البيانات المحلية' };
-  }
-}
-type StoredUser = User & { password: string };
-type UserMutationResult = {
-  success: boolean;
-  message: string;
-  user?: User;
-};
-type SupabaseLikeError = {
-  message?: string;
-  code?: string;
-  details?: string;
-  hint?: string;
-};
-type SessionMeta = {
-  createdAt: number;
-  lastActivityAt: number;
-};
-type LoginGuardState = {
-  failedAttempts: number;
-  lockedUntil: number;
-};
-
-function hashPassword(password: string): string {
-  return `sha256:${SHA256(password).toString(Hex)}`;
-}
-
-function isHashedPassword(password: string): boolean {
-  return password.startsWith('sha256:');
-}
-
-function verifyPassword(rawPassword: string, storedPassword: string): boolean {
-  if (isHashedPassword(storedPassword)) {
-    return hashPassword(rawPassword) === storedPassword;
-  }
-  return storedPassword === rawPassword;
-}
-
-const DEFAULT_USERS: StoredUser[] = DEFAULT_DEMO_CREDENTIALS.map((credential, index) => ({
-  id: String(index + 1),
-  name: credential.name,
-  username: credential.username,
-  email: credential.email,
-  role: credential.role,
-  avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${credential.username}`,
-  createdAt: '2024-01-01',
-  password: hashPassword(credential.password)
-}));
-
-const DEFAULT_SETTINGS: StoreSettings = {
-  storeName: 'متجر الحقائب',
-  storeEmail: 'info@bagstore.com',
-  storePhone: '+9647768397293',
-  whatsapp: '+9647768397293',
-  logoUrl: '',
-  faviconUrl: '',
-  logoHeightNavbar: 48,
-  logoHeightFooter: 80,
-  heroImageUrl: '',
-  heroImageUrls: [],
-  heroSlideIntervalSec: 5,
-  facebookUrl: '',
-  instagramUrl: '',
-  tiktokUrl: '',
-  youtubeUrl: '',
-  footerCategories: ['حقائب يد', 'حقائب كروس', 'حقائب ظهر', 'حقائب سفر'],
-  quickLinks: [
-    { message: 'اذهب إلى', label: 'الرئيسية', url: '/' },
-    { message: 'تصفح', label: 'المنتجات', url: '/products' },
-    { message: 'تعرف علينا', label: 'من نحن', url: '#' },
-    { message: 'اقرأ', label: 'سياسة الإرجاع', url: '#' }
-  ],
-  cloudinaryCloudName: DEFAULT_CLOUDINARY_CLOUD_NAME,
-  cloudinaryUploadPreset: DEFAULT_CLOUDINARY_UPLOAD_PRESET,
-  cloudinaryApiKey: DEFAULT_CLOUDINARY_API_KEY,
-  externalDbEnabled: !!DEFAULT_EXTERNAL_DB_URL && !!DEFAULT_EXTERNAL_DB_API_KEY,
-  externalDbProvider: 'supabase',
-  externalDbUrl: DEFAULT_EXTERNAL_DB_URL,
-  externalDbName: DEFAULT_EXTERNAL_DB_NAME,
-  externalDbApiKey: DEFAULT_EXTERNAL_DB_API_KEY,
-  themePrimaryColor: DEFAULT_THEME_PRIMARY,
-  themeAccentColor: DEFAULT_THEME_ACCENT,
-  themeBackgroundColor: DEFAULT_THEME_BACKGROUND,
-  themeForegroundColor: DEFAULT_THEME_FOREGROUND,
-  productsPerPage: 12,
-  currency: 'iqd',
-  visitorCount: 0,
-  visitorUniqueCount: 0,
-  visitorDailyStats: {},
-  visitorMonthlyStats: {},
-  userName: MOCK_USER.name,
-  userEmail: MOCK_USER.email
-};
-
-function toSafeCounterRecord(value: unknown): Record<string, number> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {};
-  }
-
-  return Object.entries(value as Record<string, unknown>).reduce<Record<string, number>>(
-    (acc, [key, rawValue]) => {
-      const numericValue = Number(rawValue);
-      if (Number.isFinite(numericValue) && numericValue >= 0) {
-        acc[key] = Math.floor(numericValue);
-      }
-      return acc;
-    },
-    {}
-  );
-}
-
-function pruneVisitorDayStats(stats: Record<string, number>, keepDays = 400): Record<string, number> {
-  const sortedKeys = Object.keys(stats).sort();
-  if (sortedKeys.length <= keepDays) { return stats; }
-  const keep = new Set(sortedKeys.slice(-keepDays));
-  return sortedKeys.reduce<Record<string, number>>((acc, key) => {
-    if (keep.has(key)) { acc[key] = stats[key]; }
-    return acc;
-  }, {});
-}
-
-function pruneVisitorMonthStats(stats: Record<string, number>, keepMonths = 36): Record<string, number> {
-  const sortedKeys = Object.keys(stats).sort();
-  if (sortedKeys.length <= keepMonths) { return stats; }
-  const keep = new Set(sortedKeys.slice(-keepMonths));
-  return sortedKeys.reduce<Record<string, number>>((acc, key) => {
-    if (keep.has(key)) { acc[key] = stats[key]; }
-    return acc;
-  }, {});
-}
-
-let supabaseClientCache: SupabaseClient | null = null;
-let supabaseClientCacheKey = '';
-
-function isExternalSupabaseEnabled(settings: StoreSettings): boolean {
-  return (
-    settings.externalDbEnabled &&
-    settings.externalDbProvider === 'supabase' &&
-    settings.externalDbUrl.trim().length > 0 &&
-    settings.externalDbApiKey.trim().length > 0
-  );
-}
-
-function getSupabaseClient(settings: StoreSettings): SupabaseClient | null {
-  if (!isExternalSupabaseEnabled(settings)) {
-    return null;
-  }
-
-  const url = settings.externalDbUrl.trim();
-  const key = settings.externalDbApiKey.trim();
-  const cacheKey = `${url}::${key}`;
-
-  if (supabaseClientCache && supabaseClientCacheKey === cacheKey) {
-    return supabaseClientCache;
-  }
-
-  supabaseClientCache = createClient(url, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false
-    }
-  });
-  supabaseClientCacheKey = cacheKey;
-  return supabaseClientCache;
-}
-
-function safeParse<T>(raw: string | null, fallback: T): T {
-  if (!raw) return fallback;
-
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
   }
 }
 
@@ -292,18 +100,6 @@ function appendUserLog(
 
   logs.unshift(nextLog);
   saveUserLogsInternal(logs);
-}
-
-function getSessionStorageSafe(): Storage | null {
-  try {
-    return window.sessionStorage;
-  } catch {
-    return null;
-  }
-}
-
-function nowMs(): number {
-  return Date.now();
 }
 
 function getSessionMeta(): SessionMeta | null {
@@ -363,129 +159,6 @@ function setSessionForUser(user: User): void {
     createdAt: now,
     lastActivityAt: now
   });
-}
-
-function formatSupabaseError(error: unknown, scope: string): Error {
-  const err = (error || {}) as SupabaseLikeError;
-  const code = err.code || '';
-  const message = err.message || 'Unknown Supabase error';
-
-  if (code === '42P01') {
-    return new Error(`فشل مزامنة ${scope}: الجدول غير موجود في Supabase. تحقق من تشغيل SQL إنشاء الجداول.`);
-  }
-
-  if (code === '42501') {
-    return new Error(`فشل مزامنة ${scope}: لا توجد صلاحيات كافية. تحقق من سياسات RLS للجدول.`);
-  }
-
-  if (/Invalid API key|invalid api key|JWT|Unauthorized|permission/i.test(message)) {
-    return new Error(`فشل مزامنة ${scope}: مفتاح Supabase غير صحيح أو غير مخوّل.`);
-  }
-
-  return new Error(`فشل مزامنة ${scope}: ${message}`);
-}
-
-function toPublicUser(user: StoredUser): User {
-  const { password: _, ...safeUser } = user;
-  return safeUser;
-}
-
-function normalizeStoredUsers(users: StoredUser[]): { users: StoredUser[]; changed: boolean } {
-  let changed = false;
-  const normalizedUsers = users.map((user) => {
-    const normalizedPassword = isHashedPassword(user.password)
-      ? user.password
-      : hashPassword(user.password);
-    if (normalizedPassword !== user.password) {
-      changed = true;
-    }
-    return {
-      ...user,
-      password: normalizedPassword
-    };
-  });
-  return { users: normalizedUsers, changed };
-}
-
-function getStoredUsers(): StoredUser[] {
-  const storedUsers = safeParse<StoredUser[] | null>(
-    localStorage.getItem(STORAGE_KEYS.USERS),
-    null
-  );
-
-  if (!Array.isArray(storedUsers) || storedUsers.length === 0) {
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(DEFAULT_USERS));
-    return DEFAULT_USERS;
-  }
-
-  const normalized = normalizeStoredUsers(storedUsers);
-  if (normalized.changed) {
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(normalized.users));
-  }
-
-  return normalized.users;
-}
-
-function saveStoredUsers(users: StoredUser[]): void {
-  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-}
-
-function syncCurrentUser(users: StoredUser[]): void {
-  const currentUser = getCurrentUser();
-  if (!currentUser) return;
-
-  const updatedCurrentUser = users.find((user) => user.id === currentUser.id);
-  if (!updatedCurrentUser) {
-    logout();
-    return;
-  }
-
-  const sessionStorageSafe = getSessionStorageSafe();
-  sessionStorageSafe?.setItem(STORAGE_KEYS.USER, JSON.stringify(toPublicUser(updatedCurrentUser)));
-}
-
-function normalizeStoredProduct(raw: unknown): Product | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const product = raw as Record<string, unknown>;
-
-  const id = String(product.id || '').trim();
-  const name = String(product.name || '').trim();
-  const category = String(product.category || '').trim();
-  const color = String(product.color || '').trim();
-  const price = Number(product.price);
-  const stock = Number(product.stock);
-  const images = Array.isArray(product.images)
-    ? product.images.map((image) => String(image || '').trim()).filter(Boolean)
-    : [];
-
-  if (!id || !name || !Number.isFinite(price) || price < 0 || !Number.isFinite(stock) || stock < 0 || images.length === 0) {
-    return null;
-  }
-
-  const salePriceRaw = Number(product.salePrice);
-  const salePrice =
-    Number.isFinite(salePriceRaw) && salePriceRaw >= 0
-      ? salePriceRaw
-      : undefined;
-  const deliveryInfo = String(product.deliveryInfo || '').trim() || undefined;
-  const createdAt = String(product.createdAt || '').trim() || new Date().toISOString();
-  const updatedAt = String(product.updatedAt || '').trim() || createdAt;
-
-  return {
-    id,
-    name,
-    price,
-    salePrice,
-    images,
-    category,
-    color,
-    deliveryInfo,
-    stock: Math.floor(stock),
-    inStock: typeof product.inStock === 'boolean' ? product.inStock : stock > 0,
-    featured: Boolean(product.featured),
-    createdAt,
-    updatedAt
-  };
 }
 
 async function syncProductsToCloud(products: Product[]): Promise<void> {
@@ -874,12 +547,10 @@ export const getCurrentUser = (): User | null => {
 export const getUserActivityLogs = (): UserActivityLog[] => getUserLogsInternal();
 
 export const hydrateAuthSession = async (): Promise<void> => {
-  if (!isFirebaseAuthEnabled()) return;
-
-  const firebaseSession = await getFirebaseCurrentSession();
   const sessionStorageSafe = getSessionStorageSafe();
+  const supabaseSessionUser = await getSupabaseSessionUser();
 
-  if (!firebaseSession) {
+  if (!supabaseSessionUser) {
     sessionStorageSafe?.removeItem(STORAGE_KEYS.AUTH);
     sessionStorageSafe?.removeItem(STORAGE_KEYS.SESSION);
     sessionStorageSafe?.removeItem(STORAGE_KEYS.USER);
@@ -887,7 +558,7 @@ export const hydrateAuthSession = async (): Promise<void> => {
     return;
   }
 
-  setSessionForUser(firebaseSessionToUser(firebaseSession));
+  setSessionForUser(supabaseSessionUser);
 };
 
 export const getLoginLockoutRemainingMs = (): number => {
@@ -956,40 +627,12 @@ export const login = async (username: string, password: string): Promise<User | 
     return null;
   }
 
-  const normalizedUsername = username.trim();
   let publicUser: User | null = null;
 
-  // استخدام Supabase فقط للمصادقة
-  const settings = getStoreSettings();
-  const supabase = getSupabaseClient(settings);
-
-  if (supabase) {
-    try {
-      const { data, error } = await supabase
-        .from('bagstore_users')
-        .select('*')
-        .eq('username', normalizedUsername)
-        .single();
-
-      if (error || !data) {
-        publicUser = null;
-      } else {
-        // التحقق من كلمة المرور
-        if (verifyPassword(password, data.password)) {
-          publicUser = {
-            id: data.id,
-            name: data.name,
-            username: data.username,
-            email: data.email,
-            role: data.role,
-            avatar: data.avatar || '',
-            createdAt: data.created_at
-          };
-        }
-      }
-    } catch {
-      publicUser = null;
-    }
+  try {
+    publicUser = await loginWithSupabase(username.trim(), password);
+  } catch {
+    publicUser = null;
   }
 
   if (publicUser) {
@@ -1037,11 +680,9 @@ export const logout = (options?: { skipLog?: boolean }): void => {
   sessionStorageSafe?.removeItem(STORAGE_KEYS.USER);
   sessionStorageSafe?.removeItem(STORAGE_KEYS.SESSION_META);
 
-  if (isFirebaseAuthEnabled()) {
-    void signOutFirebase().catch((error) => {
-      console.error('Firebase sign-out failed:', error);
-    });
-  }
+  void logoutFromSupabase().catch((error) => {
+    console.error('Supabase sign-out failed:', error);
+  });
 
   localStorage.removeItem(STORAGE_KEYS.AUTH);
   localStorage.removeItem(STORAGE_KEYS.SESSION);
@@ -1049,37 +690,19 @@ export const logout = (options?: { skipLog?: boolean }): void => {
 };
 
 export const getDemoCredentials = (): Array<{ username: string; password: string; role: User['role']; name: string }> =>
-  isFirebaseAuthEnabled()
-    ? []
-    : DEFAULT_DEMO_CREDENTIALS.map((credential) => ({
-      username: credential.username,
-      password: credential.password,
-      role: credential.role,
-      name: credential.name
-    }));
+  [];
 
-export const updatePassword = (currentPassword: string, newPassword: string): boolean => {
-  if (isFirebaseAuthEnabled()) {
-    return false;
-  }
+export const updatePassword = async (currentPassword: string, newPassword: string): Promise<boolean> => {
   const currentUser = getCurrentUser();
   if (!currentUser) {
     return false;
   }
 
-  const users = getStoredUsers();
-  const userIndex = users.findIndex((user) => user.id === currentUser.id);
-
-  if (userIndex === -1 || !verifyPassword(currentPassword, users[userIndex].password)) {
+  const updated = await updateCurrentUserPasswordWithSupabase(currentPassword, newPassword);
+  if (!updated) {
     return false;
   }
 
-  users[userIndex] = {
-    ...users[userIndex],
-    password: hashPassword(newPassword)
-  };
-  saveStoredUsers(users);
-  syncCurrentUser(users);
   appendUserLog({
     action: 'password_change',
     actorId: currentUser.id,
@@ -1090,196 +713,43 @@ export const updatePassword = (currentPassword: string, newPassword: string): bo
   return true;
 };
 
-export const getAdminUsers = (): User[] => getStoredUsers().map(toPublicUser);
+export const getAdminUsers = async (): Promise<User[]> => listSupabaseUsers();
 
-export const createAdminUser = (payload: {
+export const createAdminUser = async (_payload: {
   name: string;
   username: string;
   email: string;
   role: User['role'];
   password: string;
-}): UserMutationResult => {
-  if (isFirebaseAuthEnabled()) {
-    return { success: false, message: 'إدارة المستخدمين تتم عبر Firebase عند تفعيل المصادقة السحابية' };
-  }
-  const users = getStoredUsers();
-  const username = payload.username.trim().toLowerCase();
-  const email = payload.email.trim().toLowerCase();
-
-  if (!username || !payload.name.trim() || !email || !payload.password.trim()) {
-    return { success: false, message: 'جميع الحقول مطلوبة' };
-  }
-
-  if (payload.password.trim().length < 6) {
-    return { success: false, message: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' };
-  }
-
-  if (users.some((user) => user.username.toLowerCase() === username)) {
-    return { success: false, message: 'اسم المستخدم موجود مسبقًا' };
-  }
-
-  if (users.some((user) => user.email.toLowerCase() === email)) {
-    return { success: false, message: 'البريد الإلكتروني موجود مسبقًا' };
-  }
-
-  const newUser: StoredUser = {
-    id: Date.now().toString(),
-    name: payload.name.trim(),
-    username,
-    email,
-    role: payload.role,
-    createdAt: new Date().toISOString(),
-    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`,
-    password: hashPassword(payload.password.trim())
+}): Promise<UserMutationResult> => {
+  return {
+    success: false,
+    message: 'إنشاء المستخدمين يتم من Supabase Authentication Dashboard في وضع Supabase-only.'
   };
-
-  users.push(newUser);
-  saveStoredUsers(users);
-  const actor = getCurrentUser();
-  appendUserLog({
-    action: 'user_create',
-    actorId: actor?.id,
-    actorName: actor?.name,
-    targetUserId: newUser.id,
-    targetUserName: newUser.name,
-    details: `إضافة مستخدم جديد بصلاحية ${newUser.role}`
-  });
-
-  return { success: true, message: 'تمت إضافة المستخدم بنجاح', user: toPublicUser(newUser) };
 };
 
 export const updateAdminUser = (
   id: string,
   updates: { name: string; username: string; email: string; role: User['role'] }
-): UserMutationResult => {
-  if (isFirebaseAuthEnabled()) {
-    return { success: false, message: 'تعديل المستخدمين يتم عبر Firebase عند تفعيل المصادقة السحابية' };
-  }
-  const users = getStoredUsers();
-  const userIndex = users.findIndex((user) => user.id === id);
-  if (userIndex === -1) {
-    return { success: false, message: 'المستخدم غير موجود' };
-  }
-
-  const username = updates.username.trim().toLowerCase();
-  const email = updates.email.trim().toLowerCase();
-
-  if (!username || !updates.name.trim() || !email) {
-    return { success: false, message: 'الاسم واسم المستخدم والبريد مطلوبة' };
-  }
-
-  if (users.some((user) => user.id !== id && user.username.toLowerCase() === username)) {
-    return { success: false, message: 'اسم المستخدم موجود مسبقًا' };
-  }
-
-  if (users.some((user) => user.id !== id && user.email.toLowerCase() === email)) {
-    return { success: false, message: 'البريد الإلكتروني موجود مسبقًا' };
-  }
-
-  const currentUser = users[userIndex];
-  if (currentUser.role === 'admin' && updates.role !== 'admin') {
-    const adminCount = users.filter((user) => user.role === 'admin').length;
-    if (adminCount <= 1) {
-      return { success: false, message: 'لا يمكن إزالة صلاحية آخر مدير' };
-    }
-  }
-
-  const updatedUser: StoredUser = {
-    ...currentUser,
-    name: updates.name.trim(),
-    username,
-    email,
-    role: updates.role
+): Promise<UserMutationResult> => {
+  return {
+    success: false,
+    message: 'تعديل المستخدمين من داخل التطبيق معطل في وضع Supabase-only. عدّل profiles أو المستخدمين من Supabase Dashboard.'
   };
-
-  users[userIndex] = updatedUser;
-  saveStoredUsers(users);
-  syncCurrentUser(users);
-  const actor = getCurrentUser();
-  appendUserLog({
-    action: 'user_update',
-    actorId: actor?.id,
-    actorName: actor?.name,
-    targetUserId: updatedUser.id,
-    targetUserName: updatedUser.name,
-    details: `تحديث بيانات مستخدم (${updatedUser.role})`
-  });
-
-  return { success: true, message: 'تم تحديث المستخدم بنجاح', user: toPublicUser(updatedUser) };
 };
 
-export const removeAdminUser = (id: string): UserMutationResult => {
-  if (isFirebaseAuthEnabled()) {
-    return { success: false, message: 'حذف المستخدمين يتم عبر Firebase عند تفعيل المصادقة السحابية' };
-  }
-  const users = getStoredUsers();
-  const userToDelete = users.find((user) => user.id === id);
-
-  if (!userToDelete) {
-    return { success: false, message: 'المستخدم غير موجود' };
-  }
-
-  const currentUser = getCurrentUser();
-  if (currentUser?.id === id) {
-    return { success: false, message: 'لا يمكنك حذف حسابك الحالي' };
-  }
-
-  if (userToDelete.role === 'admin') {
-    const adminCount = users.filter((user) => user.role === 'admin').length;
-    if (adminCount <= 1) {
-      return { success: false, message: 'لا يمكن حذف آخر مدير في النظام' };
-    }
-  }
-
-  const nextUsers = users.filter((user) => user.id !== id);
-  saveStoredUsers(nextUsers);
-  syncCurrentUser(nextUsers);
-  const actor = getCurrentUser();
-  appendUserLog({
-    action: 'user_delete',
-    actorId: actor?.id,
-    actorName: actor?.name,
-    targetUserId: userToDelete.id,
-    targetUserName: userToDelete.name,
-    details: `حذف مستخدم بصلاحية ${userToDelete.role}`
-  });
-
-  return { success: true, message: 'تم حذف المستخدم بنجاح' };
+export const removeAdminUser = async (_id: string): Promise<UserMutationResult> => {
+  return {
+    success: false,
+    message: 'حذف المستخدمين يتم من Supabase Authentication Dashboard في وضع Supabase-only.'
+  };
 };
 
-export const updateAdminUserPassword = (id: string, newPassword: string): UserMutationResult => {
-  if (isFirebaseAuthEnabled()) {
-    return { success: false, message: 'تعديل كلمات المرور يتم عبر Firebase عند تفعيل المصادقة السحابية' };
-  }
-  const users = getStoredUsers();
-  const userIndex = users.findIndex((user) => user.id === id);
-
-  if (userIndex === -1) {
-    return { success: false, message: 'المستخدم غير موجود' };
-  }
-
-  if (newPassword.trim().length < 6) {
-    return { success: false, message: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' };
-  }
-
-  users[userIndex] = {
-    ...users[userIndex],
-    password: hashPassword(newPassword.trim())
+export const updateAdminUserPassword = async (_id: string, _newPassword: string): Promise<UserMutationResult> => {
+  return {
+    success: false,
+    message: 'تغيير كلمات مرور المستخدمين يتم من Supabase Authentication Dashboard في وضع Supabase-only.'
   };
-
-  saveStoredUsers(users);
-  syncCurrentUser(users);
-  const actor = getCurrentUser();
-  appendUserLog({
-    action: 'user_password_update',
-    actorId: actor?.id,
-    actorName: actor?.name,
-    targetUserId: users[userIndex].id,
-    targetUserName: users[userIndex].name,
-    details: 'تحديث كلمة مرور مستخدم'
-  });
-
-  return { success: true, message: 'تم تحديث كلمة مرور المستخدم' };
 };
 
 export const getStoreSettings = (): StoreSettings => {
@@ -1293,47 +763,11 @@ export const getStoreSettings = (): StoreSettings => {
     return DEFAULT_SETTINGS;
   }
 
-  const normalizedSettings = normalizeStoreSettings(
-    {
-      ...DEFAULT_SETTINGS,
-      ...stored
-    },
-    {
-      footerCategories: DEFAULT_SETTINGS.footerCategories,
-      quickLinks: DEFAULT_SETTINGS.quickLinks,
-      heroImageUrl: DEFAULT_SETTINGS.heroImageUrl,
-      heroImageUrls: DEFAULT_SETTINGS.heroImageUrls,
-      externalDbUrl: DEFAULT_EXTERNAL_DB_URL,
-      externalDbName: DEFAULT_EXTERNAL_DB_NAME,
-      externalDbApiKey: DEFAULT_EXTERNAL_DB_API_KEY
-    }
-  );
-
-  return {
-    ...normalizedSettings,
-    visitorDailyStats: pruneVisitorDayStats(toSafeCounterRecord(normalizedSettings.visitorDailyStats)),
-    visitorMonthlyStats: pruneVisitorMonthStats(toSafeCounterRecord(normalizedSettings.visitorMonthlyStats)),
-    themePrimaryColor: normalizeHexColor(normalizedSettings.themePrimaryColor, DEFAULT_THEME_PRIMARY),
-    themeAccentColor: normalizeHexColor(normalizedSettings.themeAccentColor, DEFAULT_THEME_ACCENT),
-    themeBackgroundColor: normalizeHexColor(normalizedSettings.themeBackgroundColor, DEFAULT_THEME_BACKGROUND),
-    themeForegroundColor: normalizeHexColor(normalizedSettings.themeForegroundColor, DEFAULT_THEME_FOREGROUND)
-  };
+  return createDefaultSettings(stored);
 };
 
 export const saveStoreSettings = (settings: StoreSettings): StoreSettings => {
-  const normalizedSettings: StoreSettings = {
-    ...normalizeStoreSettings(settings, {
-      footerCategories: DEFAULT_SETTINGS.footerCategories,
-      quickLinks: DEFAULT_SETTINGS.quickLinks,
-      heroImageUrl: DEFAULT_SETTINGS.heroImageUrl,
-      heroImageUrls: DEFAULT_SETTINGS.heroImageUrls,
-      externalDbUrl: DEFAULT_EXTERNAL_DB_URL,
-      externalDbName: DEFAULT_EXTERNAL_DB_NAME,
-      externalDbApiKey: DEFAULT_EXTERNAL_DB_API_KEY
-    }),
-    visitorDailyStats: pruneVisitorDayStats(toSafeCounterRecord(settings.visitorDailyStats)),
-    visitorMonthlyStats: pruneVisitorMonthStats(toSafeCounterRecord(settings.visitorMonthlyStats)),
-  };
+  const normalizedSettings = createNormalizedSettingsForSave(settings);
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(normalizedSettings));
   if (isExternalSupabaseEnabled(normalizedSettings)) {
     queueCloudSync(() => syncSettingsToCloud(normalizedSettings));

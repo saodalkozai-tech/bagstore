@@ -1,4 +1,4 @@
-const CACHE_NAME = "hr-accessories-v3";
+const CACHE_NAME = "bagstore-v4";
 const APP_SHELL = ["/", "/index.html", "/manifest.webmanifest", "/logo.png", "/favicon.ico"];
 
 self.addEventListener("install", (event) => {

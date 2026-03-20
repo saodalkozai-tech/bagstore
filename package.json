@@ -12,12 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
-    "auth:set-role": "node scripts/set-firebase-role.mjs",
-    "firebase:login": "firebase login",
-    "firebase:use": "firebase use hr-accessories",
-    "deploy": "npm run build && firebase deploy --only hosting",
-    "deploy:staging": "npm run build && firebase hosting:channel:deploy staging",
-    "deploy:update": "npm run check && npm run deploy"
+    "deploy:firebase": "npm run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -53,9 +48,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "crypto-js": "^4.2.0",
-    "dotenv": "^17.3.1",
     "embla-carousel-react": "^8.3.0",
-    "firebase": "^11.10.0",
     "input-otp": "^1.2.4",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
@@ -84,7 +77,6 @@
     "eslint": "^9.9.0",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.9",
-    "firebase-admin": "^13.6.1",
     "globals": "^15.9.0",
     "jsdom": "^29.0.0",
     "postcss": "^8.4.47",

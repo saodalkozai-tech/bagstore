@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getLoginLockoutRemainingMs, login } from '@/lib/storage';
-import { isFirebaseAuthEnabled } from '@/lib/firebase-auth';
 import { useStoreSettings } from '@/hooks/use-store-settings';
 import { toast } from 'sonner';
 
@@ -19,7 +18,6 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const mountedRef = useRef(true);
   const logoSrc = settings.logoUrl.trim() || '/logo.png';
-  const firebaseAuthEnabled = isFirebaseAuthEnabled();
 
   useEffect(() => {
     return () => {
@@ -95,12 +93,12 @@ export function LoginPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="username">
-                  {firebaseAuthEnabled ? 'البريد الإلكتروني' : 'اسم المستخدم'}
+                  البريد الإلكتروني
                 </Label>
                 <Input
                   id="username"
                   type="text"
-                  placeholder={firebaseAuthEnabled ? 'admin@example.com' : 'admin'}
+                  placeholder="admin@example.com"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
