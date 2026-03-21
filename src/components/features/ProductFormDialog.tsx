@@ -72,6 +72,11 @@ export function ProductFormDialog({ open, onOpenChange, product, onSuccess }: Pr
   const settings = useStoreSettings();
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const nameRef = useRef<HTMLInputElement | null>(null);
+  const categoryRef = useRef<HTMLButtonElement | null>(null);
+  const colorRef = useRef<HTMLInputElement | null>(null);
+  const priceRef = useRef<HTMLInputElement | null>(null);
+  const stockRef = useRef<HTMLInputElement | null>(null);
 
   const {
     register,
@@ -178,6 +183,24 @@ export function ProductFormDialog({ open, onOpenChange, product, onSuccess }: Pr
   };
 
   const onSubmit = async (data: ProductFormData) => {
+    // التركيز على أول حقل فارغ
+    if (!data.name.trim()) {
+      nameRef.current?.focus();
+      return;
+    }
+    if (!data.category.trim()) {
+      categoryRef.current?.click();
+      return;
+    }
+    if (!data.color.trim()) {
+      colorRef.current?.focus();
+      return;
+    }
+    if (!data.price || data.price <= 0) {
+      priceRef.current?.focus();
+      return;
+    }
+
     const images = data.images
       .split('\n')
       .map((url) => url.trim())
@@ -257,7 +280,7 @@ export function ProductFormDialog({ open, onOpenChange, product, onSuccess }: Pr
 
             <div className="space-y-2">
               <Label htmlFor="name">اسم المنتج *</Label>
-              <Input id="name" {...register('name')} />
+              <Input id="name" ref={nameRef} {...register('name')} />
               {errors.name && <p className="text-sm text-red-600">{errors.name.message}</p>}
             </div>
 
@@ -265,7 +288,7 @@ export function ProductFormDialog({ open, onOpenChange, product, onSuccess }: Pr
               <div className="space-y-2">
                 <Label htmlFor="category">الفئة *</Label>
                 <Select value={category} onValueChange={(value) => setValue('category', value, { shouldValidate: true })}>
-                  <SelectTrigger>
+                  <SelectTrigger ref={categoryRef}>
                     <SelectValue placeholder="اختر الفئة" />
                   </SelectTrigger>
                   <SelectContent>
@@ -279,16 +302,12 @@ export function ProductFormDialog({ open, onOpenChange, product, onSuccess }: Pr
 
               <div className="space-y-2">
                 <Label htmlFor="color">اللون *</Label>
-                <Select value={color} onValueChange={(value) => setValue('color', value, { shouldValidate: true })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="اختر اللون" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COLORS.filter((c) => c !== 'الكل').map((col) => (
-                      <SelectItem key={col} value={col}>{col}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="color"
+                  ref={colorRef}
+                  placeholder="أدخل اللون (مثال: أحمر، أزرق، بني)"
+                  {...register('color')}
+                />
                 {errors.color && <p className="text-sm text-red-600">{errors.color.message}</p>}
               </div>
             </div>
@@ -302,6 +321,7 @@ export function ProductFormDialog({ open, onOpenChange, product, onSuccess }: Pr
                 <Label htmlFor="price">السعر الأساسي *</Label>
                 <Input
                   id="price"
+                  ref={priceRef}
                   type="number"
                   min={1}
                   step="0.01"
@@ -327,6 +347,7 @@ export function ProductFormDialog({ open, onOpenChange, product, onSuccess }: Pr
                 <Label htmlFor="stock">الكمية المتوفرة *</Label>
                 <Input
                   id="stock"
+                  ref={stockRef}
                   type="number"
                   min={0}
                   {...register('stock', { valueAsNumber: true })}
