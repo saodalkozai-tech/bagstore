@@ -302,12 +302,22 @@ export function ProductFormDialog({ open, onOpenChange, product, onSuccess }: Pr
 
               <div className="space-y-2">
                 <Label htmlFor="color">اللون *</Label>
-                <Input
+                <Select
                   id="color"
-                  ref={colorRef}
-                  placeholder="أدخل اللون (مثال: أحمر، أزرق، بني)"
-                  {...register('color')}
-                />
+                  value={color}
+                  onValueChange={(value) => setValue('color', value, { shouldValidate: true, shouldDirty: true })}
+                >
+                  <SelectTrigger ref={colorRef as any}>
+                    <SelectValue placeholder="اختر اللون" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(settings.availableColors && settings.availableColors.length > 0 ? settings.availableColors : COLORS.filter(c => c !== 'الكل')).map((colorOption) => (
+                      <SelectItem key={colorOption} value={colorOption}>
+                        {colorOption}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {errors.color && <p className="text-sm text-red-600">{errors.color.message}</p>}
               </div>
             </div>
