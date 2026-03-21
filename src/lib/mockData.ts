@@ -22,3 +22,10 @@ export const COLORS = [
   'ذهبي',
   'فضي'
 ];
+
+export const MOCK_USER = {
+  name: 'سعود الخزاعي',
+  email: 'admin@bagstore.com'
+};
+
+export const MOCK_PRODUCTS: any[] = [];
