@@ -717,6 +717,89 @@ export function SettingsPage() {
             </div>
           </div>
 
+          <div className="rounded-xl border border-slate-200 p-4">
+            <div className="mb-4">
+              <h3 className="font-semibold text-slate-900">ألوان المنتجات</h3>
+              <p className="text-sm text-slate-500">إدارة الألوان المتاحة للمنتجات في المتجر</p>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="newColor">إضافة لون جديد</Label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    id="newColor"
+                    placeholder="أدخل اسم اللون (مثال: أحمر، أزرق، بيج)"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const input = e.target as HTMLInputElement;
+                        const newColor = input.value.trim();
+                        if (newColor && !settings.availableColors?.includes(newColor)) {
+                          setSettings((prev) => ({
+                            ...prev,
+                            availableColors: [...(prev.availableColors || []), newColor]
+                          }));
+                          input.value = '';
+                        }
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const input = document.getElementById('newColor') as HTMLInputElement;
+                      const newColor = input?.value.trim();
+                      if (newColor && !settings.availableColors?.includes(newColor)) {
+                        setSettings((prev) => ({
+                          ...prev,
+                          availableColors: [...(prev.availableColors || []), newColor]
+                        }));
+                        if (input) input.value = '';
+                      }
+                    }}
+                  >
+                    <Plus className="w-4 h-4 ml-2" />
+                    إضافة لون
+                  </Button>
+                </div>
+              </div>
+              {settings.availableColors && settings.availableColors.length > 0 ? (
+                <div className="space-y-2">
+                  <Label>الألوان المتاحة</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {settings.availableColors.map((color, index) => (
+                      <div
+                        key={index}
+                        className="group flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm"
+                      >
+                        <span>{color}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => {
+                            setSettings((prev) => ({
+                              ...prev,
+                              availableColors: prev.availableColors?.filter((_, i) => i !== index) || []
+                            }));
+                          }}
+                        >
+                          <Trash2 className="w-3 h-3 text-red-600" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  لم تتم إضافة ألوان بعد. أضف ألوان لتظهر في قائمة الألوان عند إضافة المنتجات.
+                </p>
+              )}
+            </div>
+          </div>
+
         </CardContent>
       </Card>
       )}

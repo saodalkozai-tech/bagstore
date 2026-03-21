@@ -110,4 +110,5 @@ export interface StoreSettings {
   visitorMonthlyStats: Record<string, number>;
   userName: string;
   userEmail: string;
+  availableColors?: string[];
 }
