@@ -109,8 +109,8 @@ export const DEFAULT_USERS: StoredUser[] = DEFAULT_DEMO_CREDENTIALS.map((credent
 export const DEFAULT_SETTINGS: StoreSettings = {
   storeName: 'متجر الحقائب',
   storeEmail: 'info@bagstore.com',
-  storePhone: '+9647768397293',
-  whatsapp: '+9647768397293',
+  storePhone: '+9647516595172',
+  whatsapp: '+9647516595172',
   logoUrl: '',
   faviconUrl: '',
   logoHeightNavbar: 48,

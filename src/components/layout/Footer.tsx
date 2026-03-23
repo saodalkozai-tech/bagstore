@@ -84,7 +84,7 @@ export function Footer() {
             <ul className="footer-links-list">
               <li className="footer-contact-item">
                 <Phone className="footer-contact-icon" />
-                <span>+9647768397293</span>
+                <span>+9647516595172</span>
               </li>
               <li className="footer-contact-item">
                 <Mail className="footer-contact-icon" />

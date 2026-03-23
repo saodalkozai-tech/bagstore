@@ -55,6 +55,82 @@ npm test
 npm run build
 ```
 
+## رفع الكود إلى GitHub
+
+### 1. إعداد Git لأول مرة
+
+إذا لم تقم بإعداد Git من قبل، قم بتشغيل الأوامر التالية:
+
+```bash
+# تعيين اسمك
+git config --global user.name "اسمك"
+
+# تعيين بريدك الإلكتروني
+git config --global user.email "بريدك-الإلكتروني@example.com"
+```
+
+### 2. ربط المستودع المحلي بـ GitHub
+
+```bash
+# إضافة رابط المستودع البعيد
+git remote add origin https://github.com/اسم-المستخدم/اسم-المستودع.git
+
+# التحقق من الرابط البعيد
+git remote -v
+```
+
+### 3. إجراء التغييرات ورفعها
+
+#### إضافة التغييرات:
+```bash
+# إضافة جميع الملفات المعدلة
+git add .
+
+# أو إضافة ملف محدد
+git add اسم-الملف
+```
+
+#### إنشاء commit:
+```bash
+# إنشاء commit مع رسالة واضحة
+git commit -m "وصف موجز للتغييرات التي قمت بها"
+```
+
+أمثلة على رسائل commit جيدة:
+```bash
+git commit -m "feat: إضافة صفحة تسجيل الدخول"
+git commit -m "fix: تصحيح مشكلة في عرض المنتجات"
+git commit -m "docs: تحديث ملف README"
+```
+
+#### رفع التغييرات إلى GitHub:
+```bash
+# الرفع للفرع الرئيسي (main)
+git push origin main
+
+# أو إذا كان الفرع هو master
+git push origin master
+```
+
+### 4. أوامر Git المفيدة
+
+```bash
+# عرض حالة الملفات المعدلة
+git status
+
+# عرض التغييرات التي تمت
+git log
+
+# عرض الفروع الموجودة
+git branch
+
+# إنشاء فرع جديد
+git branch اسم-الفرع
+
+# التبديل إلى فرع آخر
+git checkout اسم-الفرع
+```
+
 ## النشر
 
 النشر المعتمد داخل المستودع حاليًا هو `Firebase Hosting` عبر `GitHub Actions`.
